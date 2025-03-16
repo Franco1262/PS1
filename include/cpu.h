@@ -65,6 +65,8 @@ void cpu_execute_syscall(cpu_ps1* cpu);
 void cpu_execute_xor(cpu_ps1* cpu);
 
 void cpu_execute_addi(cpu_ps1* cpu);
+void cpu_execute_addiu(cpu_ps1* cpu);
+void cpu_execute_addu(cpu_ps1* cpu);
 void cpu_execute_andi(cpu_ps1* cpu);
 void cpu_execute_beq(cpu_ps1* cpu);
 void cpu_execute_bgtz(cpu_ps1* cpu);
