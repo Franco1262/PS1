@@ -1,0 +1,423 @@
+#include "cpu.h"
+
+#define RS (cpu->opcode >> 21) & 0x1F
+#define RT (cpu->opcode >> 16) & 0x1F
+#define RD (cpu->opcode >> 11) & 0x1F
+#define IMM16BITS (cpu->opcode & 0xFFFF)
+
+void cpu_execute_instr(cpu_ps1* cpu)
+{
+    switch((cpu->opcode & 0xFC000000) >> 26)
+    {
+        case (0b000000):
+        {
+            switch(cpu->opcode & 0x3F)
+            {
+                case 0b100000: cpu_execute_add(cpu); break;
+                case 0b100001: cpu_execute_addu(cpu); break;
+                case 0b100100: cpu_execute_and(cpu); break;
+                case 0b001101: cpu_execute_break(cpu); break;
+                case 0b011010: cpu_execute_div(cpu); break;
+                case 0b011011: cpu_execute_divu(cpu); break;
+                case 0b001001: cpu_execute_jalr(cpu); break;
+                case 0b001000: cpu_execute_jr(cpu); break;
+                case 0b010000: cpu_execute_mfhi(cpu); break;
+                case 0b010010: cpu_execute_mflo(cpu); break;
+                case 0b010001: cpu_execute_mthi(cpu); break;
+                case 0b010011: cpu_execute_mtlo(cpu); break;
+                case 0b011000: cpu_execute_mult(cpu); break;
+                case 0b011001: cpu_execute_multu(cpu); break;
+                case 0b100111: cpu_execute_nor(cpu); break;
+                case 0b100101: cpu_execute_or(cpu); break;
+                case 0b000000: cpu_execute_sll(cpu); break;
+                case 0b000100: cpu_execute_sllv(cpu); break;
+                case 0b101010: cpu_execute_slt(cpu); break;
+                case 0b101011: cpu_execute_sltu(cpu); break;
+                case 0b000011: cpu_execute_sra(cpu); break;
+                case 0b000111: cpu_execute_srav(cpu); break;
+                case 0b000010: cpu_execute_srl(cpu); break;
+                case 0b000110: cpu_execute_srlv(cpu); break;
+                case 0b100010: cpu_execute_sub(cpu); break;
+                case 0b100011: cpu_execute_subu(cpu); break;
+                case 0b001100: cpu_execute_syscall(cpu); break;
+                case 0b100110: cpu_execute_xor(cpu); break;
+            }
+            break;
+        }
+
+        case (0b001000): cpu_execute_addi(cpu); break;
+        case (0b001001): cpu_execute_addiu(cpu); break;
+        case (0b001100): cpu_execute_andi(cpu); break;
+        case (0b000100): cpu_execute_beq(cpu); break;
+        case (0b000111): cpu_execute_bgtz(cpu); break;
+        case (0b000110): cpu_execute_blez(cpu); break;
+        case (0b000101): cpu_execute_bne(cpu); break;
+        case (0b000010): cpu_execute_jump(cpu); break;
+        case (0b000011): cpu_execute_jal(cpu); break;
+        case (0b100000): cpu_execute_lb(cpu); break;
+        case (0b100100): cpu_execute_lbu(cpu); break;
+        case (0b100001): cpu_execute_lh(cpu); break;
+        case (0b100101): cpu_execute_lhu(cpu); break;
+        case (0b001111): cpu_execute_lui(cpu); break;
+        case (0b100011): cpu_execute_lw(cpu); break;
+        case (0b100010): cpu_execute_lwl(cpu); break;
+        case (0b100110): cpu_execute_lwr(cpu); break;
+        case (0b001101): cpu_execute_ori(cpu); break;
+        case (0b101000): cpu_execute_sb(cpu); break;
+        case (0b101001): cpu_execute_sh(cpu); break;
+        case (0b001010): cpu_execute_slti(cpu); break;
+        case (0b001011): cpu_execute_sltiu(cpu); break;
+        case (0b101011): cpu_execute_sw(cpu); break;
+        case (0b101010): cpu_execute_swl(cpu); break;
+        case (0b101110): cpu_execute_swr(cpu); break;
+        case (0b001110): cpu_execute_xori(cpu); break;
+
+       case (0b000001):
+       {
+            switch((cpu->opcode & 0x001F0000) >> 16)
+            {
+                case (0b00001): cpu_execute_bgez(cpu);
+                case (0b10001): cpu_execute_bgezal(cpu);
+                case (0b00000): cpu_execute_bltz(cpu);
+                case (0b10000): cpu_execute_bltzal(cpu);
+            }
+            break;
+       }
+
+       //COP0 instruction
+       case (0b010000):
+       {
+            switch((cpu->opcode >> 21) & 0x1F)
+            {
+                case (0b00000): cpu_execute_mfc0(cpu);
+                case (0b00100): cpu_execute_mtc0(cpu);
+            }
+       }
+    }
+
+    //TODO: Add later COP1,2,3 instructions which are required for GTE
+}
+
+void cpu_execute_add(cpu_ps1* cpu)
+{
+    int32_t value1 = (int32_t)cpu->r[RS];
+    int32_t value2 = (int32_t)cpu->r[RT];
+    int32_t result = value1 + value2;
+    bool overflow = ((value1 ^ result) & (value2 ^ result)) >> 31;
+    if(overflow)
+    {
+        //handle_cpu_exception(cpu, OVERFLOW);
+    }
+
+    else
+        cpu->r[RD] = (uint32_t)result;
+}
+
+void cpu_execute_addi(cpu_ps1* cpu)
+{
+    int16_t imm = IMM16BITS;
+    int32_t rs = (int32_t)cpu->r[RS];
+    int32_t result = rs + imm;
+    bool overflow = ((result ^ rs) & (result ^ imm)) >> 31;
+    if(overflow)
+    {
+        //handle_cpu_exception(cpu, OVERFLOW);
+    }
+
+    else
+        cpu->r[RT] = (uint32_t)result;
+}
+
+void cpu_execute_addiu(cpu_ps1* cpu)
+{
+    int16_t imm = IMM16BITS;
+    int32_t rs = (int32_t)cpu->r[RS];
+    int32_t result = rs + imm;
+
+    cpu->r[RT] = (uint32_t)result;   
+}
+
+void cpu_execute_addu(cpu_ps1* cpu)
+{
+    cpu->r[RD] = cpu->r[RS] + cpu->r[RT];
+}
+
+void cpu_execute_and(cpu_ps1* cpu)
+{
+    cpu->r[RD] = cpu->r[RS] & cpu->r[RT];   
+}
+
+void cpu_execute_andi(cpu_ps1* cpu)
+{
+    cpu->r[RT] = cpu->r[RS] & IMM16BITS;   
+}
+
+void cpu_execute_beq(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_break(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_div(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_divu(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_jalr(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_jr(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_mfhi(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_mflo(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_mthi(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_mtlo(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_mult(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_multu(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_nor(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_or(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_sll(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_sllv(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_slt(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_sltu(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_sra(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_srav(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_srl(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_srlv(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_sub(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_subu(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_syscall(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_xor(cpu_ps1* cpu)
+{
+    cpu->r[RD] = cpu->r[RS] ^ cpu->r[RT];
+}
+
+void cpu_execute_bgtz(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_blez(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_bne(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_jump(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_jal(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_lb(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_lbu(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_lh(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_lhu(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_lui(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_lw(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_lwl(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_lwr(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_ori(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_sb(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_sh(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_slti(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_sltiu(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_sw(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_swl(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_swr(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_xori(cpu_ps1* cpu)
+{
+    cpu->r[RT] = cpu->r[RS] ^ IMM16BITS;
+}
+
+void cpu_execute_bgez(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_bgezal(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_bltz(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_bltzal(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_mfc0(cpu_ps1* cpu)
+{
+
+}
+
+void cpu_execute_mtc0(cpu_ps1* cpu)
+{
+    
+}
