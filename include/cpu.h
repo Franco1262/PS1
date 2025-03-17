@@ -24,12 +24,39 @@
   -          hi,lo    Multiply/divide results, may be changed by subroutines 
  */
 
+ typedef enum
+ {
+    OVERFLOW,
+    BREAK,
+    ADDRESS_ERROR,
+
+ } EXCEPTION;
+
+ typedef enum {
+    COP0_BPC = 3,      // Breakpoint on execute (R/W)
+    COP0_BDA = 5,      // Breakpoint on data access (R/W)
+    COP0_JUMPDEST = 6, // Randomly memorized jump address (R)
+    COP0_DCIC = 7,     // Breakpoint control (R/W)
+    COP0_BADVADDR = 8, // Bad Virtual Address (R)
+    COP0_BDAM = 9,     // Data Access breakpoint mask (R/W)
+    COP0_BPCM = 11,    // Execute breakpoint mask (R/W)
+    COP0_SR = 12,      // System status register (R/W)
+    COP0_CAUSE = 13,   // Exception cause register (R)
+    COP0_EPC = 14,     // Exception return address (R)
+    COP0_PRID = 15     // Processor ID (R)
+} cop0_reg_t;
+
 typedef struct cpu_ps1
 {
     uint32_t r[32];
+    uint32_t hi;
+    uint32_t lo;
     uint32_t opcode; //All instructions are 32 bit long
     uint32_t pc;
     uint8_t cycles;
+    bool exec_delay_slot;
+    uint32_t delay_slot;
+    uint32_t cop0[32];
 } cpu_ps1;
 
 void cpu_execute_instr(cpu_ps1* cpu);
@@ -100,5 +127,7 @@ void cpu_execute_bltzal(cpu_ps1* cpu);
 //COP0 instructions
 void cpu_execute_mfc0(cpu_ps1* cpu);
 void cpu_execute_mtc0(cpu_ps1* cpu);
+
+void cpu_handle_exception(cpu_ps1* cpu, EXCEPTION exception);
 
 #endif

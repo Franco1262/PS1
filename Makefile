@@ -18,8 +18,9 @@ $(EXEC): $(OBJ_FILES)
 
 # Compilar los archivos .c a .o
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
-	@mkdir $(OBJ_DIR)
+	@if not exist $(OBJ_DIR) mkdir $(OBJ_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
+
 
 # Limpiar los archivos generados
 clean:

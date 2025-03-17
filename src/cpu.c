@@ -4,6 +4,12 @@
 #define RT (cpu->opcode >> 16) & 0x1F
 #define RD (cpu->opcode >> 11) & 0x1F
 #define IMM16BITS (cpu->opcode & 0xFFFF)
+#define OFFSET16BITS (cpu->opcode & 0xFFFF)
+#define calc_delay_slot (cpu->delay_slot = (cpu->pc + 4))
+#define MASK26BITS (cpu->opcode & 0x3FFFFFF)
+//Useful for the Address error exception to check if is trying to read from outside KUSEG in user mode
+#define check_address_error(address) (address >= 0x00000000 && address <= 0x7FFFFFFF && (cpu->cop0[COP0_SR] & 2))
+    
 
 void cpu_execute_instr(cpu_ps1* cpu)
 {
@@ -95,7 +101,12 @@ void cpu_execute_instr(cpu_ps1* cpu)
        }
     }
 
-    //TODO: Add later COP1,2,3 instructions which are required for GTE
+    //TODO: Add later COP 2,3 instructions which are required for GTE and MDEC i believe
+}
+
+void cpu_handle_exception(cpu_ps1* cpu, EXCEPTION exception)
+{
+    //Do something in the future
 }
 
 void cpu_execute_add(cpu_ps1* cpu)
@@ -105,32 +116,28 @@ void cpu_execute_add(cpu_ps1* cpu)
     int32_t result = value1 + value2;
     bool overflow = ((value1 ^ result) & (value2 ^ result)) >> 31;
     if(overflow)
-    {
-        //handle_cpu_exception(cpu, OVERFLOW);
-    }
-
+        cpu_handle_exception(cpu, OVERFLOW);
+    
     else
         cpu->r[RD] = (uint32_t)result;
 }
 
 void cpu_execute_addi(cpu_ps1* cpu)
 {
-    int16_t imm = IMM16BITS;
+    int32_t imm = (int16_t)IMM16BITS;
     int32_t rs = (int32_t)cpu->r[RS];
     int32_t result = rs + imm;
     bool overflow = ((result ^ rs) & (result ^ imm)) >> 31;
     if(overflow)
-    {
-        //handle_cpu_exception(cpu, OVERFLOW);
-    }
-
+        cpu_handle_exception(cpu, OVERFLOW);
+    
     else
         cpu->r[RT] = (uint32_t)result;
 }
 
 void cpu_execute_addiu(cpu_ps1* cpu)
 {
-    int16_t imm = IMM16BITS;
+    int32_t imm = (int16_t)IMM16BITS;
     int32_t rs = (int32_t)cpu->r[RS];
     int32_t result = rs + imm;
 
@@ -154,32 +161,58 @@ void cpu_execute_andi(cpu_ps1* cpu)
 
 void cpu_execute_beq(cpu_ps1* cpu)
 {
-
+    int32_t offset = ((int16_t)OFFSET16BITS) << 2; // offet, shifted )left wo bits and sign-extended.
+    calc_delay_slot;
+    uint32_t target_address = offset + cpu->delay_slot;
+    if(cpu->r[RS] == cpu->r[RT])
+    {
+        cpu->pc = target_address;
+        cpu->exec_delay_slot = true;
+    }
 }
 
 void cpu_execute_break(cpu_ps1* cpu)
 {
-
+    cpu_handle_exception(cpu, BREAK);
 }
 
 void cpu_execute_div(cpu_ps1* cpu)
 {
-
+    //TODO: check if division by zero has to be handled in any way
+    cpu->lo = (int32_t)cpu->r[RS] / (int32_t)cpu->r[RT];
+    cpu->hi = (int32_t)cpu->r[RS] % (int32_t)cpu->r[RT];
 }
 
 void cpu_execute_divu(cpu_ps1* cpu)
 {
-
+    //TODO: check if division by zero has to be handled in any way
+    cpu->lo = cpu->r[RS] / cpu->r[RT];
+    cpu->hi = cpu->r[RS] % cpu->r[RT];   
 }
 
 void cpu_execute_jalr(cpu_ps1* cpu)
 {
-
+    calc_delay_slot;
+    uint32_t target_address = cpu->r[RS];
+    if((target_address & 0x3) != 0 || !check_address_error(target_address))
+    {
+        cpu_handle_exception(cpu, ADDRESS_ERROR);
+    }
+    cpu->pc = cpu->r[RS];
+    cpu->exec_delay_slot = true;
+    cpu->r[RD] = cpu->delay_slot + 4;
 }
 
 void cpu_execute_jr(cpu_ps1* cpu)
 {
-
+    calc_delay_slot;
+    uint32_t target_address = cpu->r[RS];
+    if((target_address & 0x3) != 0)
+    {
+        cpu_handle_exception(cpu, ADDRESS_ERROR);
+    }
+    cpu->pc = cpu->r[RS];
+    cpu->exec_delay_slot = true;
 }
 
 void cpu_execute_mfhi(cpu_ps1* cpu)
@@ -284,32 +317,58 @@ void cpu_execute_xor(cpu_ps1* cpu)
 
 void cpu_execute_bgtz(cpu_ps1* cpu)
 {
-
+    int32_t offset = ((int16_t)OFFSET16BITS) << 2; // offset, shifted left two bits and sign-extended.
+    calc_delay_slot;
+    uint32_t target_address = offset + cpu->delay_slot;
+    if(!(cpu->r[RS] & 0x80000000) && (cpu->r[RS] != 0))
+    {
+        cpu->pc = target_address;
+        cpu->exec_delay_slot = true;
+    }
 }
 
 void cpu_execute_blez(cpu_ps1* cpu)
 {
-
+    int32_t offset = ((int16_t)OFFSET16BITS) << 2; // offset, shifted left two bits and sign-extended.
+    calc_delay_slot;
+    uint32_t target_address = offset + cpu->delay_slot;
+    if((cpu->r[RS] & 0x80000000) || (cpu->r[RS] == 0))
+    {
+        cpu->pc = target_address;
+        cpu->exec_delay_slot = true;
+    }
 }
 
 void cpu_execute_bne(cpu_ps1* cpu)
 {
-
+    int32_t offset = ((int16_t)OFFSET16BITS) << 2; // offset, shifted left two bits and sign-extended.
+    calc_delay_slot;
+    uint32_t target_address = offset + cpu->delay_slot;
+    if(cpu->r[RS] != cpu->r[RT])
+    {
+        cpu->pc = target_address;
+        cpu->exec_delay_slot = true;
+    }
 }
 
 void cpu_execute_jump(cpu_ps1* cpu)
 {
-
+    calc_delay_slot;
+    cpu->pc = (MASK26BITS << 2) | (cpu->delay_slot & 0xF0000000);
+    cpu->exec_delay_slot = true;
 }
 
 void cpu_execute_jal(cpu_ps1* cpu)
 {
-
+    calc_delay_slot;
+    cpu->pc = (MASK26BITS << 2) | (cpu->delay_slot & 0xF0000000);
+    cpu->exec_delay_slot = true;
+    cpu->r[31] = cpu->delay_slot + 4;
 }
 
 void cpu_execute_lb(cpu_ps1* cpu)
 {
-
+    
 }
 
 void cpu_execute_lbu(cpu_ps1* cpu)
@@ -394,22 +453,52 @@ void cpu_execute_xori(cpu_ps1* cpu)
 
 void cpu_execute_bgez(cpu_ps1* cpu)
 {
-
+    int32_t offset = ((int16_t)OFFSET16BITS) << 2; // offset, shifted left two bits and sign-extended.
+    calc_delay_slot;
+    uint32_t target_address = offset + cpu->delay_slot;
+    if(cpu->r[RS] & 0x80000000)
+    {
+        cpu->pc = target_address;
+        cpu->exec_delay_slot = true;
+    }
 }
 
 void cpu_execute_bgezal(cpu_ps1* cpu)
 {
-
+    int32_t offset = ((int16_t)OFFSET16BITS) << 2; // offset, shifted left two bits and sign-extended.
+    calc_delay_slot;
+    uint32_t target_address = offset + cpu->delay_slot;
+    cpu->r[31] = cpu->delay_slot + 4; //Address of the instruction after the delay slot
+    if(!(cpu->r[RS] & 0x80000000))
+    {
+        cpu->pc = target_address;
+        cpu->exec_delay_slot = true;
+    }
 }
 
 void cpu_execute_bltz(cpu_ps1* cpu)
 {
-
+    int32_t offset = ((int16_t)OFFSET16BITS) << 2; // offset, shifted left two bits and sign-extended.
+    calc_delay_slot;
+    uint32_t target_address = offset + cpu->delay_slot;
+    if(cpu->r[RS] & 0x80000000)
+    {
+        cpu->pc = target_address;
+        cpu->exec_delay_slot = true;
+    }
 }
 
 void cpu_execute_bltzal(cpu_ps1* cpu)
 {
-
+    int32_t offset = ((int16_t)OFFSET16BITS) << 2; // offset, shifted left two bits and sign-extended.
+    calc_delay_slot;
+    uint32_t target_address = offset + cpu->delay_slot;
+    cpu->r[31] = cpu->delay_slot + 4; //Address of the instruction after the delay slot
+    if(cpu->r[RS] & 0x80000000)
+    {
+        cpu->pc = target_address;
+        cpu->exec_delay_slot = true;
+    }
 }
 
 void cpu_execute_mfc0(cpu_ps1* cpu)
