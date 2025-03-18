@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-
 /*
  Name       Alias    Common Usage
   R0         zero     Constant (always 0)
@@ -24,11 +23,13 @@
   -          hi,lo    Multiply/divide results, may be changed by subroutines 
  */
 
+
  typedef enum
  {
     OVERFLOW,
     BREAK,
     ADDRESS_ERROR,
+    SYSCALL
 
  } EXCEPTION;
 
@@ -46,6 +47,8 @@
     COP0_PRID = 15     // Processor ID (R)
 } cop0_reg_t;
 
+
+typedef struct ps1_bus ps1_bus;
 typedef struct cpu_ps1
 {
     uint32_t r[32];
@@ -56,9 +59,14 @@ typedef struct cpu_ps1
     uint8_t cycles;
     bool exec_delay_slot;
     uint32_t delay_slot;
+    uint32_t delay_load_value;
+    bool update_delay_load;
+    uint8_t delay_load_register;
     uint32_t cop0[32];
+    ps1_bus* bus;
 } cpu_ps1;
 
+void cpu_tick(cpu_ps1* cpu);
 void cpu_execute_instr(cpu_ps1* cpu);
 
 //Cpu instructions
