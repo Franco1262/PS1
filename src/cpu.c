@@ -510,17 +510,38 @@ void cpu_execute_sltiu(cpu_ps1* cpu)
 
 void cpu_execute_sw(cpu_ps1* cpu)
 {
-
+    uint32_t virtual_address = (int32_t)(int16_t)IMM16BITS + cpu->r[BASE];
+    if(virtual_address & 0x00 != 0)
+        cpu_handle_exception(cpu, ADDRESS_ERROR);
+    ps1_bus_store_word(cpu->bus, virtual_address, cpu->r[RT]);
 }
 
 void cpu_execute_swl(cpu_ps1* cpu)
 {
-
+    int32_t offset = (int16_t)OFFSET16BITS;
+    int32_t virtual_address = offset + cpu->r[BASE];
+    if(!valid_address(virtual_address))
+        cpu_handle_exception(cpu, ADDRESS_ERROR);
+    uint32_t word = ps1_bus_read_word(cpu->bus, virtual_address & 0xFFFFFFFC);
+    
+    uint8_t shift = ((virtual_address & 0x3) << 3);
+    uint32_t mask = 0xFFFFFF00 << shift;
+    uint32_t new_word = (word & mask) | (cpu->r[RT] >> (24 - shift));
+    ps1_bus_store_word (cpu->bus, virtual_address & 0xFFFFFFFC, new_word);
 }
 
 void cpu_execute_swr(cpu_ps1* cpu)
 {
-
+    int32_t offset = (int16_t)OFFSET16BITS;
+    int32_t virtual_address = offset + cpu->r[BASE];
+    if(!valid_address(virtual_address))
+        cpu_handle_exception(cpu, ADDRESS_ERROR);
+    uint32_t word = ps1_bus_read_word(cpu->bus, virtual_address & 0xFFFFFFFC);
+    
+    uint8_t shift = ((virtual_address & 0x3) << 3);
+    uint32_t mask = 0x00FFFFFF >> (24 - shift);
+    uint32_t new_word = (word & mask) | (cpu->r[RT] << shift);
+    ps1_bus_store_word (cpu->bus, virtual_address & 0xFFFFFFFC, new_word);
 }
 
 void cpu_execute_xori(cpu_ps1* cpu)
