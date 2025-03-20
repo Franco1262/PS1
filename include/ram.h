@@ -16,7 +16,13 @@ ps1_ram* ps1_ram_create();
 void ps1_ram_init(ps1_ram* ram);
 void ps1_ram_destroy(ps1_ram* ram);
 
-uint32_t ps1_ram_read(ps1_ram* ram, uint32_t addr);
-void ps1_ram_write(ps1_ram* ram, uint32_t addr, uint32_t value);
+uint32_t ps1_ram_read_word(ps1_ram* ram, uint32_t addr);
+void ps1_ram_store_word(ps1_ram* ram, uint32_t addr, uint32_t value);
+
+uint16_t ps1_ram_read_halfword(ps1_ram* ram, uint32_t addr);
+void ps1_ram_store_halfword(ps1_ram* ram, uint32_t addr, uint16_t value);
+
+uint8_t ps1_ram_read_byte(ps1_ram* ram, uint32_t addr);
+void ps1_ram_store_byte(ps1_ram* ram, uint32_t addr, uint8_t value);
 
 #endif

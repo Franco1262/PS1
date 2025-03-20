@@ -29,6 +29,7 @@ void ps1_cpu_destroy(ps1_cpu* cpu)
 
 void cpu_tick(ps1_cpu* cpu)
 {
+    //TODO: Improve this to work properly and handle delay slot
     cpu->opcode = ps1_bus_read_word(cpu, cpu->pc);
     cpu_execute_instr(cpu);
     cpu->pc += 4;
@@ -129,7 +130,7 @@ void cpu_execute_instr(ps1_cpu* cpu)
 
 void cpu_handle_exception(ps1_cpu* cpu, EXCEPTION exception)
 {
-    //Do something in the future
+    //TODO: add exception handling
 }
 
 void cpu_execute_add(ps1_cpu* cpu)

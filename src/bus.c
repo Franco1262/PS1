@@ -1,4 +1,7 @@
 #include "bus.h"
+#include "cpu.h"
+#include "ram.h"
+#include "bios.h"
 
 ps1_bus* ps1_bus_create()
 {
