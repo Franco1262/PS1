@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include "stdlib.h"
 
 /*
  Name       Alias    Common Usage
@@ -49,7 +50,7 @@
 
 
 typedef struct ps1_bus ps1_bus;
-typedef struct cpu_ps1
+typedef struct ps1_cpu
 {
     uint32_t r[32];
     uint32_t hi;
@@ -64,78 +65,82 @@ typedef struct cpu_ps1
     uint8_t delay_load_register;
     uint32_t cop0[32];
     ps1_bus* bus;
-} cpu_ps1;
+} ps1_cpu;
 
-void cpu_tick(cpu_ps1* cpu);
-void cpu_execute_instr(cpu_ps1* cpu);
+void cpu_tick(ps1_cpu* cpu);
+void cpu_execute_instr(ps1_cpu* cpu);
 
 //Cpu instructions
-void cpu_execute_add(cpu_ps1* cpu);
-void cpu_execute_addu(cpu_ps1* cpu);
-void cpu_execute_and(cpu_ps1* cpu);
-void cpu_execute_break(cpu_ps1* cpu);
-void cpu_execute_div(cpu_ps1* cpu);
-void cpu_execute_divu(cpu_ps1* cpu);
-void cpu_execute_jalr(cpu_ps1* cpu);
-void cpu_execute_jr(cpu_ps1* cpu);
-void cpu_execute_mfhi(cpu_ps1* cpu);
-void cpu_execute_mflo(cpu_ps1* cpu);
-void cpu_execute_mthi(cpu_ps1* cpu);
-void cpu_execute_mtlo(cpu_ps1* cpu);
-void cpu_execute_mult(cpu_ps1* cpu);
-void cpu_execute_multu(cpu_ps1* cpu);
-void cpu_execute_nor(cpu_ps1* cpu);
-void cpu_execute_or(cpu_ps1* cpu);
-void cpu_execute_sll(cpu_ps1* cpu);
-void cpu_execute_sllv(cpu_ps1* cpu);
-void cpu_execute_slt(cpu_ps1* cpu);
-void cpu_execute_sltu(cpu_ps1* cpu);
-void cpu_execute_sra(cpu_ps1* cpu);
-void cpu_execute_srav(cpu_ps1* cpu);
-void cpu_execute_srl(cpu_ps1* cpu);
-void cpu_execute_srlv(cpu_ps1* cpu);
-void cpu_execute_sub(cpu_ps1* cpu);
-void cpu_execute_subu(cpu_ps1* cpu);
-void cpu_execute_syscall(cpu_ps1* cpu);
-void cpu_execute_xor(cpu_ps1* cpu);
+void cpu_execute_add(ps1_cpu* cpu);
+void cpu_execute_addu(ps1_cpu* cpu);
+void cpu_execute_and(ps1_cpu* cpu);
+void cpu_execute_break(ps1_cpu* cpu);
+void cpu_execute_div(ps1_cpu* cpu);
+void cpu_execute_divu(ps1_cpu* cpu);
+void cpu_execute_jalr(ps1_cpu* cpu);
+void cpu_execute_jr(ps1_cpu* cpu);
+void cpu_execute_mfhi(ps1_cpu* cpu);
+void cpu_execute_mflo(ps1_cpu* cpu);
+void cpu_execute_mthi(ps1_cpu* cpu);
+void cpu_execute_mtlo(ps1_cpu* cpu);
+void cpu_execute_mult(ps1_cpu* cpu);
+void cpu_execute_multu(ps1_cpu* cpu);
+void cpu_execute_nor(ps1_cpu* cpu);
+void cpu_execute_or(ps1_cpu* cpu);
+void cpu_execute_sll(ps1_cpu* cpu);
+void cpu_execute_sllv(ps1_cpu* cpu);
+void cpu_execute_slt(ps1_cpu* cpu);
+void cpu_execute_sltu(ps1_cpu* cpu);
+void cpu_execute_sra(ps1_cpu* cpu);
+void cpu_execute_srav(ps1_cpu* cpu);
+void cpu_execute_srl(ps1_cpu* cpu);
+void cpu_execute_srlv(ps1_cpu* cpu);
+void cpu_execute_sub(ps1_cpu* cpu);
+void cpu_execute_subu(ps1_cpu* cpu);
+void cpu_execute_syscall(ps1_cpu* cpu);
+void cpu_execute_xor(ps1_cpu* cpu);
 
-void cpu_execute_addi(cpu_ps1* cpu);
-void cpu_execute_addiu(cpu_ps1* cpu);
-void cpu_execute_addu(cpu_ps1* cpu);
-void cpu_execute_andi(cpu_ps1* cpu);
-void cpu_execute_beq(cpu_ps1* cpu);
-void cpu_execute_bgtz(cpu_ps1* cpu);
-void cpu_execute_blez(cpu_ps1* cpu);
-void cpu_execute_bne(cpu_ps1* cpu);
-void cpu_execute_jump(cpu_ps1* cpu);
-void cpu_execute_jal(cpu_ps1* cpu);
-void cpu_execute_lb(cpu_ps1* cpu);
-void cpu_execute_lbu(cpu_ps1* cpu);
-void cpu_execute_lh(cpu_ps1* cpu);
-void cpu_execute_lhu(cpu_ps1* cpu);
-void cpu_execute_lui(cpu_ps1* cpu);
-void cpu_execute_lw(cpu_ps1* cpu);
-void cpu_execute_lwl(cpu_ps1* cpu);
-void cpu_execute_lwr(cpu_ps1* cpu);
-void cpu_execute_ori(cpu_ps1* cpu);
-void cpu_execute_sb(cpu_ps1* cpu);
-void cpu_execute_sh(cpu_ps1* cpu);
-void cpu_execute_slti(cpu_ps1* cpu);
-void cpu_execute_sltiu(cpu_ps1* cpu);
-void cpu_execute_sw(cpu_ps1* cpu);
-void cpu_execute_swl(cpu_ps1* cpu);
-void cpu_execute_swr(cpu_ps1* cpu);
-void cpu_execute_xori(cpu_ps1* cpu);
+void cpu_execute_addi(ps1_cpu* cpu);
+void cpu_execute_addiu(ps1_cpu* cpu);
+void cpu_execute_addu(ps1_cpu* cpu);
+void cpu_execute_andi(ps1_cpu* cpu);
+void cpu_execute_beq(ps1_cpu* cpu);
+void cpu_execute_bgtz(ps1_cpu* cpu);
+void cpu_execute_blez(ps1_cpu* cpu);
+void cpu_execute_bne(ps1_cpu* cpu);
+void cpu_execute_jump(ps1_cpu* cpu);
+void cpu_execute_jal(ps1_cpu* cpu);
+void cpu_execute_lb(ps1_cpu* cpu);
+void cpu_execute_lbu(ps1_cpu* cpu);
+void cpu_execute_lh(ps1_cpu* cpu);
+void cpu_execute_lhu(ps1_cpu* cpu);
+void cpu_execute_lui(ps1_cpu* cpu);
+void cpu_execute_lw(ps1_cpu* cpu);
+void cpu_execute_lwl(ps1_cpu* cpu);
+void cpu_execute_lwr(ps1_cpu* cpu);
+void cpu_execute_ori(ps1_cpu* cpu);
+void cpu_execute_sb(ps1_cpu* cpu);
+void cpu_execute_sh(ps1_cpu* cpu);
+void cpu_execute_slti(ps1_cpu* cpu);
+void cpu_execute_sltiu(ps1_cpu* cpu);
+void cpu_execute_sw(ps1_cpu* cpu);
+void cpu_execute_swl(ps1_cpu* cpu);
+void cpu_execute_swr(ps1_cpu* cpu);
+void cpu_execute_xori(ps1_cpu* cpu);
 
-void cpu_execute_bgez(cpu_ps1* cpu);
-void cpu_execute_bgezal(cpu_ps1* cpu);
-void cpu_execute_bltz(cpu_ps1* cpu);
-void cpu_execute_bltzal(cpu_ps1* cpu);
+void cpu_execute_bgez(ps1_cpu* cpu);
+void cpu_execute_bgezal(ps1_cpu* cpu);
+void cpu_execute_bltz(ps1_cpu* cpu);
+void cpu_execute_bltzal(ps1_cpu* cpu);
 
 //COP0 instructions
-void cpu_execute_mfc0(cpu_ps1* cpu);
-void cpu_execute_mtc0(cpu_ps1* cpu);
+void cpu_execute_mfc0(ps1_cpu* cpu);
+void cpu_execute_mtc0(ps1_cpu* cpu);
 
-void cpu_handle_exception(cpu_ps1* cpu, EXCEPTION exception);
+void cpu_handle_exception(ps1_cpu* cpu, EXCEPTION exception);
+
+ps1_cpu* ps1_cpu_create();
+void ps1_cpu_init(ps1_cpu* cpu);
+void ps1_cpu_destroy(ps1_cpu* cpu);
 
 #endif

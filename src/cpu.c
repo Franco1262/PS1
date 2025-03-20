@@ -12,12 +12,29 @@
 //Useful for the Address error exception to check if it is trying to read from outside KUSEG in user mode
 #define valid_address(address) (address >= 0x00000000 && address <= 0x7FFFFFFF && (cpu->cop0[COP0_SR] & 2))
 
-void cpu_tick(cpu_ps1* cpu)
+ps1_cpu* ps1_cpu_create()
 {
-    //tick...
+    (ps1_cpu*)malloc(sizeof(ps1_cpu));
 }
 
-void cpu_execute_instr(cpu_ps1* cpu)
+void ps1_cpu_init(ps1_cpu* cpu)
+{
+    memset(cpu, 0, sizeof(ps1_cpu));
+}
+
+void ps1_cpu_destroy(ps1_cpu* cpu)
+{
+    free (cpu);
+}
+
+void cpu_tick(ps1_cpu* cpu)
+{
+    cpu->opcode = ps1_bus_read_word(cpu, cpu->pc);
+    cpu_execute_instr(cpu);
+    cpu->pc += 4;
+}
+
+void cpu_execute_instr(ps1_cpu* cpu)
 {
     switch((cpu->opcode & 0xFC000000) >> 26)
     {
@@ -110,12 +127,12 @@ void cpu_execute_instr(cpu_ps1* cpu)
     //TODO: Add later COP 2,3 instructions which are required for GTE and MDEC i believe
 }
 
-void cpu_handle_exception(cpu_ps1* cpu, EXCEPTION exception)
+void cpu_handle_exception(ps1_cpu* cpu, EXCEPTION exception)
 {
     //Do something in the future
 }
 
-void cpu_execute_add(cpu_ps1* cpu)
+void cpu_execute_add(ps1_cpu* cpu)
 {
     int32_t value1 = (int32_t)cpu->r[RS];
     int32_t value2 = (int32_t)cpu->r[RT];
@@ -128,7 +145,7 @@ void cpu_execute_add(cpu_ps1* cpu)
         cpu->r[RD] = (uint32_t)result;
 }
 
-void cpu_execute_addi(cpu_ps1* cpu)
+void cpu_execute_addi(ps1_cpu* cpu)
 {
     int32_t imm = (int16_t)IMM16BITS;
     int32_t rs = (int32_t)cpu->r[RS];
@@ -141,7 +158,7 @@ void cpu_execute_addi(cpu_ps1* cpu)
         cpu->r[RT] = (uint32_t)result;
 }
 
-void cpu_execute_addiu(cpu_ps1* cpu)
+void cpu_execute_addiu(ps1_cpu* cpu)
 {
     int32_t imm = (int16_t)IMM16BITS;
     int32_t rs = (int32_t)cpu->r[RS];
@@ -150,22 +167,22 @@ void cpu_execute_addiu(cpu_ps1* cpu)
     cpu->r[RT] = (uint32_t)result;   
 }
 
-void cpu_execute_addu(cpu_ps1* cpu)
+void cpu_execute_addu(ps1_cpu* cpu)
 {
     cpu->r[RD] = cpu->r[RS] + cpu->r[RT];
 }
 
-void cpu_execute_and(cpu_ps1* cpu)
+void cpu_execute_and(ps1_cpu* cpu)
 {
     cpu->r[RD] = cpu->r[RS] & cpu->r[RT];   
 }
 
-void cpu_execute_andi(cpu_ps1* cpu)
+void cpu_execute_andi(ps1_cpu* cpu)
 {
     cpu->r[RT] = cpu->r[RS] & IMM16BITS;   
 }
 
-void cpu_execute_beq(cpu_ps1* cpu)
+void cpu_execute_beq(ps1_cpu* cpu)
 {
     int32_t offset = ((int16_t)OFFSET16BITS) << 2; // offet, shifted )left wo bits and sign-extended.
     calc_delay_slot;
@@ -177,26 +194,26 @@ void cpu_execute_beq(cpu_ps1* cpu)
     }
 }
 
-void cpu_execute_break(cpu_ps1* cpu)
+void cpu_execute_break(ps1_cpu* cpu)
 {
     cpu_handle_exception(cpu, BREAK);
 }
 
-void cpu_execute_div(cpu_ps1* cpu)
+void cpu_execute_div(ps1_cpu* cpu)
 {
     //TODO: check if division by zero has to be handled in any way
     cpu->lo = (int32_t)cpu->r[RS] / (int32_t)cpu->r[RT];
     cpu->hi = (int32_t)cpu->r[RS] % (int32_t)cpu->r[RT];
 }
 
-void cpu_execute_divu(cpu_ps1* cpu)
+void cpu_execute_divu(ps1_cpu* cpu)
 {
     //TODO: check if division by zero has to be handled in any way
     cpu->lo = cpu->r[RS] / cpu->r[RT];
     cpu->hi = cpu->r[RS] % cpu->r[RT];   
 }
 
-void cpu_execute_jalr(cpu_ps1* cpu)
+void cpu_execute_jalr(ps1_cpu* cpu)
 {
     calc_delay_slot;
     uint32_t target_address = cpu->r[RS];
@@ -209,7 +226,7 @@ void cpu_execute_jalr(cpu_ps1* cpu)
     cpu->r[RD] = cpu->delay_slot + 4;
 }
 
-void cpu_execute_jr(cpu_ps1* cpu)
+void cpu_execute_jr(ps1_cpu* cpu)
 {
     calc_delay_slot;
     uint32_t target_address = cpu->r[RS];
@@ -221,91 +238,91 @@ void cpu_execute_jr(cpu_ps1* cpu)
     cpu->exec_delay_slot = true;
 }
 
-void cpu_execute_mfhi(cpu_ps1* cpu)
+void cpu_execute_mfhi(ps1_cpu* cpu)
 {
     cpu->r[RD] = cpu->hi;
 }
 
-void cpu_execute_mflo(cpu_ps1* cpu)
+void cpu_execute_mflo(ps1_cpu* cpu)
 {
     cpu->r[RD] = cpu->lo;
 }
 
-void cpu_execute_mthi(cpu_ps1* cpu)
+void cpu_execute_mthi(ps1_cpu* cpu)
 {
     cpu->hi = cpu->r[RS];
 }
 
-void cpu_execute_mtlo(cpu_ps1* cpu)
+void cpu_execute_mtlo(ps1_cpu* cpu)
 {
     cpu->lo = cpu->r[RS];
 }
 
-void cpu_execute_mult(cpu_ps1* cpu)
+void cpu_execute_mult(ps1_cpu* cpu)
 {
     uint32_t result = (int32_t)cpu->r[RS] * (int32_t)cpu->r[RT];
     cpu->lo = result & 0xFFFF;
     cpu->hi = (result >> 16) & 0xFFFF;
 }
 
-void cpu_execute_multu(cpu_ps1* cpu)
+void cpu_execute_multu(ps1_cpu* cpu)
 {
     uint32_t result = cpu->r[RS] * cpu->r[RT];
     cpu->lo = result & 0xFFFF;
     cpu->hi = (result >> 16) & 0xFFFF;
 }
 
-void cpu_execute_nor(cpu_ps1* cpu)
+void cpu_execute_nor(ps1_cpu* cpu)
 {
     cpu->r[RD] = ~(cpu->r[RS] | cpu->r[RT]);
 }
 
-void cpu_execute_or(cpu_ps1* cpu)
+void cpu_execute_or(ps1_cpu* cpu)
 {
     cpu->r[RD] = cpu->r[RS] | cpu->r[RT];
 }
 
-void cpu_execute_sll(cpu_ps1* cpu)
+void cpu_execute_sll(ps1_cpu* cpu)
 {                              //Extracting sa bits from opcode
     cpu->r[RD] = cpu->r[RT] << ((cpu->opcode >> 6) & 0x1F);
 }
 
-void cpu_execute_sllv(cpu_ps1* cpu)
+void cpu_execute_sllv(ps1_cpu* cpu)
 {
     cpu->r[RD] = cpu->r[RT] << (cpu->r[RS] & 0x1F);
 }
 
-void cpu_execute_slt(cpu_ps1* cpu)
+void cpu_execute_slt(ps1_cpu* cpu)
 {
     cpu->r[RD] = ((int32_t)cpu->r[RS] < (int32_t)cpu->r[RT]) ? 1 : 0;  
 }
 
-void cpu_execute_sltu(cpu_ps1* cpu)
+void cpu_execute_sltu(ps1_cpu* cpu)
 {
     cpu->r[RD] = (cpu->r[RS] < cpu->r[RT]) ? 1 : 0;  
 }
 
-void cpu_execute_sra(cpu_ps1* cpu)
+void cpu_execute_sra(ps1_cpu* cpu)
 {
     cpu->r[RD] = (int32_t)(cpu->r[RT] >> ((cpu->opcode >> 6) & 0x1F));
 }
 
-void cpu_execute_srav(cpu_ps1* cpu)
+void cpu_execute_srav(ps1_cpu* cpu)
 {
     cpu->r[RD] = (int32_t)(cpu->r[RT] >> (cpu->r[RS] & 0x1F));
 }
 
-void cpu_execute_srl(cpu_ps1* cpu)
+void cpu_execute_srl(ps1_cpu* cpu)
 {
     cpu->r[RD] = (cpu->r[RT] >> ((cpu->opcode >> 6) & 0x1F));  
 }
 
-void cpu_execute_srlv(cpu_ps1* cpu)
+void cpu_execute_srlv(ps1_cpu* cpu)
 {
     cpu->r[RD] = (cpu->r[RT] >> (cpu->r[RS] & 0x1F));
 }
 
-void cpu_execute_sub(cpu_ps1* cpu)
+void cpu_execute_sub(ps1_cpu* cpu)
 {
     int32_t value1 = (int32_t)cpu->r[RS];
     int32_t value2 = (int32_t)cpu->r[RT];
@@ -318,22 +335,22 @@ void cpu_execute_sub(cpu_ps1* cpu)
         cpu->r[RD] = (uint32_t)result;
 }
 
-void cpu_execute_subu(cpu_ps1* cpu)
+void cpu_execute_subu(ps1_cpu* cpu)
 {
     cpu->r[RD] = cpu->r[RS] - cpu->r[RT];
 }
 
-void cpu_execute_syscall(cpu_ps1* cpu)
+void cpu_execute_syscall(ps1_cpu* cpu)
 {
     cpu_handle_exception(cpu, SYSCALL);
 }
 
-void cpu_execute_xor(cpu_ps1* cpu)
+void cpu_execute_xor(ps1_cpu* cpu)
 {
     cpu->r[RD] = cpu->r[RS] ^ cpu->r[RT];
 }
 
-void cpu_execute_bgtz(cpu_ps1* cpu)
+void cpu_execute_bgtz(ps1_cpu* cpu)
 {
     int32_t offset = ((int16_t)OFFSET16BITS) << 2; // offset, shifted left two bits and sign-extended.
     calc_delay_slot;
@@ -345,7 +362,7 @@ void cpu_execute_bgtz(cpu_ps1* cpu)
     }
 }
 
-void cpu_execute_blez(cpu_ps1* cpu)
+void cpu_execute_blez(ps1_cpu* cpu)
 {
     int32_t offset = ((int16_t)OFFSET16BITS) << 2; // offset, shifted left two bits and sign-extended.
     calc_delay_slot;
@@ -357,7 +374,7 @@ void cpu_execute_blez(cpu_ps1* cpu)
     }
 }
 
-void cpu_execute_bne(cpu_ps1* cpu)
+void cpu_execute_bne(ps1_cpu* cpu)
 {
     int32_t offset = ((int16_t)OFFSET16BITS) << 2; // offset, shifted left two bits and sign-extended.
     calc_delay_slot;
@@ -369,14 +386,14 @@ void cpu_execute_bne(cpu_ps1* cpu)
     }
 }
 
-void cpu_execute_jump(cpu_ps1* cpu)
+void cpu_execute_jump(ps1_cpu* cpu)
 {
     calc_delay_slot;
     cpu->pc = (MASK26BITS << 2) | (cpu->delay_slot & 0xF0000000);
     cpu->exec_delay_slot = true;
 }
 
-void cpu_execute_jal(cpu_ps1* cpu)
+void cpu_execute_jal(ps1_cpu* cpu)
 {
     calc_delay_slot;
     cpu->pc = (MASK26BITS << 2) | (cpu->delay_slot & 0xF0000000);
@@ -384,7 +401,7 @@ void cpu_execute_jal(cpu_ps1* cpu)
     cpu->r[31] = cpu->delay_slot + 4;
 }
 
-void cpu_execute_lb(cpu_ps1* cpu)
+void cpu_execute_lb(ps1_cpu* cpu)
 {
     int32_t offset = (uint16_t)OFFSET16BITS;
     int32_t virtual_address = offset + cpu->r[BASE];
@@ -396,7 +413,7 @@ void cpu_execute_lb(cpu_ps1* cpu)
     cpu->update_delay_load = true;
 }   
 
-void cpu_execute_lbu(cpu_ps1* cpu)
+void cpu_execute_lbu(ps1_cpu* cpu)
 {
     int32_t offset = (uint16_t)OFFSET16BITS;
     int32_t virtual_address = offset + cpu->r[BASE];
@@ -407,7 +424,7 @@ void cpu_execute_lbu(cpu_ps1* cpu)
     cpu->update_delay_load = true;
 }
 
-void cpu_execute_lh(cpu_ps1* cpu)
+void cpu_execute_lh(ps1_cpu* cpu)
 {
     int32_t offset = (uint16_t)OFFSET16BITS;
     int32_t virtual_address = offset + cpu->r[BASE];
@@ -418,7 +435,7 @@ void cpu_execute_lh(cpu_ps1* cpu)
     cpu->update_delay_load = true;
 }
 
-void cpu_execute_lhu(cpu_ps1* cpu)
+void cpu_execute_lhu(ps1_cpu* cpu)
 {
     int32_t offset = (uint16_t)OFFSET16BITS;
     int32_t virtual_address = offset + cpu->r[BASE];
@@ -429,7 +446,7 @@ void cpu_execute_lhu(cpu_ps1* cpu)
     cpu->update_delay_load = true;
 }
 
-void cpu_execute_lui(cpu_ps1* cpu)
+void cpu_execute_lui(ps1_cpu* cpu)
 {
     uint32_t result = IMM16BITS << 16;
     cpu->delay_load_value = result;
@@ -437,7 +454,7 @@ void cpu_execute_lui(cpu_ps1* cpu)
     cpu->update_delay_load = true;
 }
 
-void cpu_execute_lw(cpu_ps1* cpu)
+void cpu_execute_lw(ps1_cpu* cpu)
 {
     int32_t offset = (int16_t)OFFSET16BITS;
     int32_t virtual_address = offset + cpu->r[BASE];
@@ -448,7 +465,7 @@ void cpu_execute_lw(cpu_ps1* cpu)
     cpu->update_delay_load = true;
 }
 
-void cpu_execute_lwl(cpu_ps1* cpu)
+void cpu_execute_lwl(ps1_cpu* cpu)
 {
     int32_t offset = (int16_t)OFFSET16BITS;
     int32_t virtual_address = offset + cpu->r[BASE];
@@ -463,7 +480,7 @@ void cpu_execute_lwl(cpu_ps1* cpu)
     cpu->update_delay_load = true;
 }
 
-void cpu_execute_lwr(cpu_ps1* cpu)
+void cpu_execute_lwr(ps1_cpu* cpu)
 {
     int32_t offset = (int16_t)OFFSET16BITS;
     int32_t virtual_address = offset + cpu->r[BASE];
@@ -478,18 +495,18 @@ void cpu_execute_lwr(cpu_ps1* cpu)
     cpu->update_delay_load = true;
 }
 
-void cpu_execute_ori(cpu_ps1* cpu)
+void cpu_execute_ori(ps1_cpu* cpu)
 {
     cpu->r[RT] = ((uint32_t)IMM16BITS | cpu->r[RS]);
 }
 
-void cpu_execute_sb(cpu_ps1* cpu)
+void cpu_execute_sb(ps1_cpu* cpu)
 {
     uint32_t virtual_address = (int32_t)(int16_t)IMM16BITS + cpu->r[BASE];
     ps1_bus_store_byte(cpu->bus, virtual_address, (cpu->r[RT] & 0xFF));
 }
 
-void cpu_execute_sh(cpu_ps1* cpu)
+void cpu_execute_sh(ps1_cpu* cpu)
 {
     uint32_t virtual_address = (int32_t)(int16_t)IMM16BITS + cpu->r[BASE];
     if(virtual_address & 0x1)
@@ -497,18 +514,18 @@ void cpu_execute_sh(cpu_ps1* cpu)
     ps1_bus_store_halfword(cpu->bus, virtual_address, (cpu->r[RT] & 0xFFFF));
 }
 
-void cpu_execute_slti(cpu_ps1* cpu)
+void cpu_execute_slti(ps1_cpu* cpu)
 {
     cpu->r[RT] = (cpu->r[RS] < ((int32_t)(int16_t)IMM16BITS)) ? 1 : 0;
 }
 
 
-void cpu_execute_sltiu(cpu_ps1* cpu)
+void cpu_execute_sltiu(ps1_cpu* cpu)
 {
     cpu->r[RT] = (cpu->r[RS] < ((uint32_t)(int32_t)(int16_t)IMM16BITS)) ? 1 : 0;
 }
 
-void cpu_execute_sw(cpu_ps1* cpu)
+void cpu_execute_sw(ps1_cpu* cpu)
 {
     uint32_t virtual_address = (int32_t)(int16_t)IMM16BITS + cpu->r[BASE];
     if(virtual_address & 0x00 != 0)
@@ -516,7 +533,7 @@ void cpu_execute_sw(cpu_ps1* cpu)
     ps1_bus_store_word(cpu->bus, virtual_address, cpu->r[RT]);
 }
 
-void cpu_execute_swl(cpu_ps1* cpu)
+void cpu_execute_swl(ps1_cpu* cpu)
 {
     int32_t offset = (int16_t)OFFSET16BITS;
     int32_t virtual_address = offset + cpu->r[BASE];
@@ -530,7 +547,7 @@ void cpu_execute_swl(cpu_ps1* cpu)
     ps1_bus_store_word (cpu->bus, virtual_address & 0xFFFFFFFC, new_word);
 }
 
-void cpu_execute_swr(cpu_ps1* cpu)
+void cpu_execute_swr(ps1_cpu* cpu)
 {
     int32_t offset = (int16_t)OFFSET16BITS;
     int32_t virtual_address = offset + cpu->r[BASE];
@@ -544,12 +561,12 @@ void cpu_execute_swr(cpu_ps1* cpu)
     ps1_bus_store_word (cpu->bus, virtual_address & 0xFFFFFFFC, new_word);
 }
 
-void cpu_execute_xori(cpu_ps1* cpu)
+void cpu_execute_xori(ps1_cpu* cpu)
 {
     cpu->r[RT] = cpu->r[RS] ^ IMM16BITS;
 }
 
-void cpu_execute_bgez(cpu_ps1* cpu)
+void cpu_execute_bgez(ps1_cpu* cpu)
 {
     int32_t offset = ((int16_t)OFFSET16BITS) << 2; // offset, shifted left two bits and sign-extended.
     calc_delay_slot;
@@ -561,7 +578,7 @@ void cpu_execute_bgez(cpu_ps1* cpu)
     }
 }
 
-void cpu_execute_bgezal(cpu_ps1* cpu)
+void cpu_execute_bgezal(ps1_cpu* cpu)
 {
     int32_t offset = ((int16_t)OFFSET16BITS) << 2; // offset, shifted left two bits and sign-extended.
     calc_delay_slot;
@@ -574,7 +591,7 @@ void cpu_execute_bgezal(cpu_ps1* cpu)
     }
 }
 
-void cpu_execute_bltz(cpu_ps1* cpu)
+void cpu_execute_bltz(ps1_cpu* cpu)
 {
     int32_t offset = ((int16_t)OFFSET16BITS) << 2; // offset, shifted left two bits and sign-extended.
     calc_delay_slot;
@@ -586,7 +603,7 @@ void cpu_execute_bltz(cpu_ps1* cpu)
     }
 }
 
-void cpu_execute_bltzal(cpu_ps1* cpu)
+void cpu_execute_bltzal(ps1_cpu* cpu)
 {
     int32_t offset = ((int16_t)OFFSET16BITS) << 2; // offset, shifted left two bits and sign-extended.
     calc_delay_slot;
@@ -599,12 +616,12 @@ void cpu_execute_bltzal(cpu_ps1* cpu)
     }
 }
 
-void cpu_execute_mfc0(cpu_ps1* cpu)
+void cpu_execute_mfc0(ps1_cpu* cpu)
 {
     cpu->r[RT] = cpu->cop0[RD];
 }
 
-void cpu_execute_mtc0(cpu_ps1* cpu)
+void cpu_execute_mtc0(ps1_cpu* cpu)
 {
     cpu->cop0[RD] = cpu->r[RT];  
 }
