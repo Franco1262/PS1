@@ -11,10 +11,22 @@ void ps1_bios_init(ps1_bios* bios)
     bios->buffer = NULL; // Initialize buffer to NULL
 }
 
-uint8_t ps1_bios_read(ps1_bios* bios, uint32_t addr)
+uint8_t ps1_bios_read_byte(ps1_bios* bios, uint32_t addr)
 {
     uint32_t offset = addr & 0x003FFFFF;
     return *(bios->buffer + offset);
+}
+
+uint16_t ps1_bios_read_halfword(ps1_bios* bios, uint16_t addr)
+{
+    uint32_t offset = addr & 0x003FFFFF;
+    return *(uint16_t*)(bios->buffer + offset);   
+}
+
+uint32_t ps1_bios_read_word(ps1_bios* bios, uint32_t addr)
+{
+    uint32_t offset = addr & 0x003FFFFF;
+    return *(uint32_t*)(bios->buffer + offset);
 }
 
 void ps1_bios_load(ps1_bios* bios)

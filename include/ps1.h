@@ -2,6 +2,9 @@
 #define PS1_H
 
 #include <stdint.h>
+#include <string.h>
+#include <string.h>
+#include <stdlib.h>
 
 typedef struct ps1_cpu ps1_cpu;
 typedef struct ps1_ram ps1_ram;
@@ -21,5 +24,6 @@ ps1* ps1_create();
 void ps1_init(ps1* ps1);
 void ps1_destroy(ps1* ps1);
 void ps1_load_bios(ps1* ps1);
+void ps1_play(ps1* ps1);
 
 #endif

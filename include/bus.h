@@ -2,7 +2,8 @@
 #define BUS_H
 
 #include "stdint.h"
-#include "stdlib.h"
+#include <string.h>
+#include <stdlib.h>
 
 typedef struct ps1_bios ps1_bios;
 typedef struct ps1_cpu ps1_cpu;

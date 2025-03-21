@@ -9,8 +9,8 @@ int main()
     ps1_load_bios(PS1);
 
     while(true)
-        printf("Hello, World!\n");
-
+        ps1_play(PS1);
+    
     ps1_destroy(PS1);
     return 0;
 }

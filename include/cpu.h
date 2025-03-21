@@ -4,7 +4,9 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
-#include "stdlib.h"
+#include <string.h>
+#include <stdlib.h>
+#include "log.h"
 
 /*
  Name       Alias    Common Usage
@@ -58,13 +60,15 @@ typedef struct ps1_cpu
     uint32_t opcode; //All instructions are 32 bit long
     uint32_t pc;
     uint8_t cycles;
-    bool exec_delay_slot;
+    bool branch;
     uint32_t delay_slot;
     uint32_t delay_load_value;
-    bool update_delay_load;
+    uint8_t update_delay_load;
     uint8_t delay_load_register;
+    uint32_t branch_address;
     uint32_t cop0[32];
     ps1_bus* bus;
+    FILE* log;
 } ps1_cpu;
 
 void cpu_tick(ps1_cpu* cpu);
@@ -142,5 +146,8 @@ void cpu_handle_exception(ps1_cpu* cpu, EXCEPTION exception);
 ps1_cpu* ps1_cpu_create();
 void ps1_cpu_init(ps1_cpu* cpu);
 void ps1_cpu_destroy(ps1_cpu* cpu);
+void ps1_connect_bus(ps1_bus* bus, ps1_cpu* cpu);
+
+
 
 #endif

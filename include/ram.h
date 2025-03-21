@@ -2,7 +2,8 @@
 #define RAM_H
 
 #include "stdint.h"
-#include "stdlib.h"
+#include <string.h>
+#include <stdlib.h>
 
 
 #define RAM_SIZE 0x200000

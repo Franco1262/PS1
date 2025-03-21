@@ -4,3 +4,6 @@ docs
 *.exe
 psx_tests
 *.BIN
+ROMS
+include/log.h
+src/log.c
