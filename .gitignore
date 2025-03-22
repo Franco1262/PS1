@@ -7,3 +7,4 @@ psx_tests
 ROMS
 include/log.h
 src/log.c
+*.txt
