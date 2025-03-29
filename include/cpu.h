@@ -6,28 +6,11 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
-#include "log.h"
+#include "disassembler.h"
 
-/*
- Name       Alias    Common Usage
-  R0         zero     Constant (always 0)
-  R1         at       Assembler temporary (destroyed by some assembler pseudoinstructions!)
-  R2-R3      v0-v1    Subroutine return values, may be changed by subroutines
-  R4-R7      a0-a3    Subroutine arguments, may be changed by subroutines
-  R8-R15     t0-t7    Temporaries, may be changed by subroutines
-  R16-R23    s0-s7    Static variables, must be saved by subs
-  R24-R25    t8-t9    Temporaries, may be changed by subroutines
-  R26-R27    k0-k1    Reserved for kernel (destroyed by some IRQ handlers!)
-  R28        gp       Global pointer (rarely used)
-  R29        sp       Stack pointer
-  R30        fp(s8)   Frame Pointer, or 9th Static variable, must be saved
-  R31        ra       Return address (used so by JAL,BLTZAL,BGEZAL opcodes)
-  -          pc       Program counter
-  -          hi,lo    Multiply/divide results, may be changed by subroutines 
- */
+#define MAX_SIZE_FIFO 2
 
-
- typedef enum
+typedef enum
  {
     OVERFLOW,
     BREAK,
@@ -50,25 +33,57 @@
     COP0_PRID = 15     // Processor ID (R)
 } cop0_reg_t;
 
+extern const uint32_t cpu_cop0_writemask[];
 
 typedef struct ps1_bus ps1_bus;
+
+typedef struct delayed_register
+{
+    uint32_t delayed_value;
+    uint8_t delayed_register;
+    bool modified;
+    uint32_t pc;
+} delayed_register;
+
+/*
+ Name       Alias    Common Usage
+  R0         zero     Constant (always 0)
+  R1         at       Assembler temporary (destroyed by some assembler pseudoinstructions!)
+  R2-R3      v0-v1    Subroutine return values, may be changed by subroutines
+  R4-R7      a0-a3    Subroutine arguments, may be changed by subroutines
+  R8-R15     t0-t7    Temporaries, may be changed by subroutines
+  R16-R23    s0-s7    Static variables, must be saved by subs
+  R24-R25    t8-t9    Temporaries, may be changed by subroutines
+  R26-R27    k0-k1    Reserved for kernel (destroyed by some IRQ handlers!)
+  R28        gp       Global pointer (rarely used)
+  R29        sp       Stack pointer
+  R30        fp(s8)   Frame Pointer, or 9th Static variable, must be saved
+  R31        ra       Return address (used so by JAL,BLTZAL,BGEZAL opcodes)
+  -          pc       Program counter
+  -          hi,lo    Multiply/divide results, may be changed by subroutines 
+ */
+
 typedef struct ps1_cpu
 {
-    uint32_t r[32];
-    uint32_t hi;
-    uint32_t lo;
-    uint32_t opcode; //All instructions are 32 bit long
-    uint32_t pc;
-    uint8_t cycles;
-    bool branch;
-    uint32_t delay_slot;
-    uint32_t delay_load_value;
-    uint8_t update_delay_load;
-    uint8_t delay_load_register;
-    uint32_t branch_address;
+    uint32_t r[32]; //32 general registers. more info above
+    uint32_t hi; //Special register hi
+    uint32_t lo; //Special register lo
+    uint32_t opcode; //All instructions are 32 bits long
+    uint32_t pc; //Special register pc
     uint32_t cop0[32];
     ps1_bus* bus;
+    delayed_register fifo_delay_load[MAX_SIZE_FIFO]; //FIFO that handles delay when loading values into general registers
+    uint32_t virtual_address;
+
+    //Useful for branches
+    bool branch;
+    uint32_t branch_address;
+    bool branch_delay;
+    
+    //Useful for debugging
     FILE* log;
+    uint32_t debug_rs_value;
+    uint32_t debug_rt_value;
 } ps1_cpu;
 
 void cpu_tick(ps1_cpu* cpu);
@@ -147,7 +162,5 @@ ps1_cpu* ps1_cpu_create();
 void ps1_cpu_init(ps1_cpu* cpu);
 void ps1_cpu_destroy(ps1_cpu* cpu);
 void ps1_connect_bus(ps1_bus* bus, ps1_cpu* cpu);
-
-
 
 #endif
