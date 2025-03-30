@@ -51,8 +51,8 @@ void LOG(INSTRUCTIONS instr, ps1_cpu* cpu)
         
         // Instructions 17 - 18
         case BEQ: case BNE:
-            log_trace("%08x: %-5s, rs:%-4s rt:%-4s, off:%04x, branch address:%08x", 
-                cpu->pc, instruction_names[instr], cpu_registers[RS], cpu_registers[RT], OFFSET16BITS, cpu->branch_address);           
+            log_trace("%08x: %-5s, rs:%-4s rt:%-4s, off:%04x, branch address:%08x     ;%-5s:%08x %-5s:%08x", 
+                cpu->pc, instruction_names[instr], cpu_registers[RS], cpu_registers[RT], OFFSET16BITS, cpu->branch_address, cpu_registers[RS], cpu->debug_rs_value, cpu_registers[RT], cpu->debug_rt_value);           
             break;
         
         // Instructions 19 - 24

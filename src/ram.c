@@ -8,6 +8,7 @@ ps1_ram* ps1_ram_create()
 void ps1_ram_init(ps1_ram* ram)
 {
     ram->ram_buff = malloc(RAM_SIZE);
+    memset(ram->ram_buff, 0, RAM_SIZE);
 }
 
 void ps1_ram_destroy(ps1_ram* ram)

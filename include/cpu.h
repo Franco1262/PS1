@@ -82,8 +82,10 @@ typedef struct ps1_cpu
     
     //Useful for debugging
     FILE* log;
+    FILE* exe;
     uint32_t debug_rs_value;
     uint32_t debug_rt_value;
+    bool load_exe;
 } ps1_cpu;
 
 void cpu_tick(ps1_cpu* cpu);
@@ -162,5 +164,7 @@ ps1_cpu* ps1_cpu_create();
 void ps1_cpu_init(ps1_cpu* cpu);
 void ps1_cpu_destroy(ps1_cpu* cpu);
 void ps1_connect_bus(ps1_bus* bus, ps1_cpu* cpu);
+
+void sideload_exe(ps1_cpu* cpu);
 
 #endif

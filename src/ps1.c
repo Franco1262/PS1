@@ -2,6 +2,7 @@
 #include "bios.h"
 #include "bus.h"
 #include "cpu.h"
+#include "gpu.h"
 #include "ps1.h"
 
 ps1* ps1_create()
@@ -15,11 +16,13 @@ void ps1_init(ps1* ps1)
     ps1->cpu = ps1_cpu_create();
     ps1->ram = ps1_ram_create();
     ps1->bus = ps1_bus_create();
+    ps1->gpu = ps1_gpu_create();
   
     ps1_bios_init(ps1->bios);
     ps1_cpu_init(ps1->cpu);
     ps1_ram_init(ps1->ram);
-    ps1_bus_init(ps1->bus, ps1->bios, ps1->cpu, ps1->ram);
+    ps1_gpu_init(ps1->gpu);
+    ps1_bus_init(ps1->bus, ps1->bios, ps1->cpu, ps1->ram, ps1->gpu);
 
     ps1_connect_bus(ps1->bus, ps1->cpu);
 }
