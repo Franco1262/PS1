@@ -28,15 +28,18 @@
 #define HANDLE_LOAD\
             if(cpu->fifo_delay_load[1].modified)\
             {\
-                cpu->r[cpu->fifo_delay_load[1].delayed_register] = cpu->fifo_delay_load[1].delayed_value;\
-                cpu->fifo_delay_load[1].modified = false;\
+                if(cpu->fifo_delay_load[0].delayed_register != cpu->fifo_delay_load[1].delayed_register)\
+                {\
+                    cpu->r[cpu->fifo_delay_load[1].delayed_register] = cpu->fifo_delay_load[1].delayed_value;\
+                }\
+                cpu->fifo_delay_load[1].modified = false; /* Reset old entry */ \
             }\
             if(cpu->fifo_delay_load[0].modified)\
             {\
-                if(!((cpu->fifo_delay_load[0].pc == (cpu->fifo_delay_load[1].pc + 4)) && (cpu->fifo_delay_load[0].delayed_register ==  cpu->fifo_delay_load[1].delayed_register)))\
-                    cpu->fifo_delay_load[1] = cpu->fifo_delay_load[0];\
+                cpu->fifo_delay_load[1] = cpu->fifo_delay_load[0];\
                 cpu->fifo_delay_load[0] = (delayed_register){0};\
-            }
+            }\
+            cpu->r[0] = 0;
 
 //useful for getting output from the bios and .exes
 #define tty_output(pc)\
@@ -169,7 +172,6 @@ void cpu_tick(ps1_cpu* cpu)
         cpu->load_exe = false;
     }
 
-    cpu->r[0] = 0;
     HANDLE_LOAD;
     cpu->opcode = ps1_bus_read_word(cpu->bus, cpu->pc);
     cpu_execute_instr(cpu);
@@ -266,6 +268,9 @@ void cpu_execute_instr(ps1_cpu* cpu)
             }
             break;
        }
+
+       default:
+            break;
     }
 
     //TODO: Add later COP 2,3 instructions which are required for GTE and MDEC i believe
@@ -283,15 +288,18 @@ void cpu_execute_add(ps1_cpu* cpu)
     
     cpu->debug_rs_value = cpu->r[RS];
     cpu->debug_rt_value = cpu->r[RT];
-    uint32_t value1 = cpu->r[RS];
-    uint32_t value2 = cpu->r[RT];
-    uint32_t result = value1 + value2;
+
+    int32_t value1 = cpu->r[RS];
+    int32_t value2 = cpu->r[RT];
+    int32_t result = value1 + value2;
     bool overflow = (((value1 ^ result) & (value2 ^ result)) >> 31) & 0x1;
+
     if(overflow)
         cpu_handle_exception(cpu, OVERFLOW);
     
     else
         cpu->r[RD] = result;
+
     LOG(ADD, cpu);
 }
 
@@ -300,9 +308,9 @@ void cpu_execute_addi(ps1_cpu* cpu)
     
     cpu->debug_rs_value = cpu->r[RS];
     cpu->debug_rt_value = cpu->r[RT];
-    uint32_t imm = (int32_t)(int16_t)IMM16BITS;
-    uint32_t rs = cpu->r[RS];
-    uint32_t result = rs + imm;
+    int32_t imm = (int32_t)(int16_t)IMM16BITS;
+    int32_t rs = cpu->r[RS];
+    int32_t result = rs + imm;
     bool overflow = (((result ^ rs) & (result ^ imm)) >> 31) & 0x1;
 
     if(overflow)
@@ -318,6 +326,7 @@ void cpu_execute_addiu(ps1_cpu* cpu)
     
     cpu->debug_rs_value = cpu->r[RS];
     cpu->debug_rt_value = cpu->r[RT];
+
     uint32_t imm = (int32_t)(int16_t)IMM16BITS;
     cpu->r[RT] = cpu->r[RS] + imm;
     LOG(ADDIU, cpu);
@@ -328,6 +337,7 @@ void cpu_execute_addu(ps1_cpu* cpu)
     
     cpu->debug_rs_value = cpu->r[RS];
     cpu->debug_rt_value = cpu->r[RT];
+
     cpu->r[RD] = cpu->r[RS] + cpu->r[RT];
     LOG(ADDU, cpu);
 }
@@ -355,6 +365,7 @@ void cpu_execute_beq(ps1_cpu* cpu)
     
     cpu->debug_rs_value = cpu->r[RS];
     cpu->debug_rt_value = cpu->r[RT];
+
     uint32_t offset = ((int32_t)(int16_t)OFFSET16BITS) << 2; // offset, shifted left two bits and sign-extended.
     uint32_t target_address = offset + (cpu->pc + 4);
     if(cpu->r[RS] == cpu->r[RT])
@@ -805,10 +816,8 @@ void cpu_execute_lwl(ps1_cpu* cpu)
     uint8_t shift = ((cpu->virtual_address & 0x3) << 3);
     uint32_t mask = 0x00FFFFFF >> shift;
 
-    cpu->fifo_delay_load[0].delayed_value = (word << (24 - shift)) | (cpu->r[RT] & mask);
-    cpu->fifo_delay_load[0].delayed_register = RT;
-    cpu->fifo_delay_load[0].modified = 1;
-    cpu->fifo_delay_load[0].pc = cpu->pc;
+    cpu->r[RT] = (word << (24 - shift)) | (cpu->r[RT] & mask);
+
     LOG(LWL, cpu);
 }
 
@@ -825,10 +834,8 @@ void cpu_execute_lwr(ps1_cpu* cpu)
     uint8_t shift = ((cpu->virtual_address & 0x3) << 3);
     uint32_t mask = 0xFFFFFF00 >> (24 - shift);
 
-    cpu->fifo_delay_load[0].delayed_value = (word >> shift) | (cpu->r[RT] & mask);
-    cpu->fifo_delay_load[0].delayed_register = RT;
-    cpu->fifo_delay_load[0].modified = 1;
-    cpu->fifo_delay_load[0].pc = cpu->pc;
+    cpu->r[RT] = (word >> shift) | (cpu->r[RT] & mask);
+
     LOG(LWR, cpu);
 }
 
