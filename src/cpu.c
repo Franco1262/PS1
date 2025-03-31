@@ -171,12 +171,16 @@ void cpu_tick(ps1_cpu* cpu)
         sideload_exe(cpu);
         cpu->load_exe = false;
     }
-
-    HANDLE_LOAD;
-    cpu->opcode = ps1_bus_read_word(cpu->bus, cpu->pc);
-    cpu_execute_instr(cpu);
-    cpu->pc += 4;
-    HANDLE_BRANCH;
+    if(cpu->pc & 0x3)
+        cpu_handle_exception(cpu, ADEL);
+    else
+    {
+        HANDLE_LOAD;
+        cpu->opcode = ps1_bus_read_word(cpu->bus, cpu->pc);
+        cpu_execute_instr(cpu);
+        cpu->pc += 4;
+        HANDLE_BRANCH;
+    }   
 }
 
 void cpu_execute_instr(ps1_cpu* cpu)
@@ -278,7 +282,7 @@ void cpu_execute_instr(ps1_cpu* cpu)
 
 void cpu_handle_exception(ps1_cpu* cpu, EXCEPTION exception)
 {
-    cpu->cop0[COP0_CAUSE] = (cpu->cop0[COP0_CAUSE] & 0xFFFFFFF0) | (exception << 2);
+    cpu->cop0[COP0_CAUSE] = (cpu->cop0[COP0_CAUSE] & 0xFFFFFF00) | (exception << 2);
     cpu->cop0[COP0_EPC] = cpu->pc;
 
     
@@ -450,10 +454,6 @@ void cpu_execute_jalr(ps1_cpu* cpu)
     cpu->debug_rs_value = cpu->r[RS];
     cpu->debug_rt_value = cpu->r[RT];
     uint32_t target_address = cpu->r[RS];
-    if((target_address & 0x3))
-    {
-        cpu_handle_exception(cpu, ADEL);
-    }
     cpu->branch_address = target_address;
     cpu->branch = true;
     cpu->r[RD] = cpu->pc + 8;
@@ -842,7 +842,11 @@ void cpu_execute_lwl(ps1_cpu* cpu)
     uint8_t shift = ((cpu->virtual_address & 0x3) << 3);
     uint32_t mask = 0x00FFFFFF >> shift;
 
-    cpu->r[RT] = (word << (24 - shift)) | (cpu->r[RT] & mask);
+    uint32_t value = (word << (24 - shift)) | (cpu->r[RT] & mask);
+    cpu->fifo_delay_load[0].delayed_value = value;
+    cpu->fifo_delay_load[0].delayed_register = RT;
+    cpu->fifo_delay_load[0].modified = 1;
+    cpu->fifo_delay_load[0].pc = cpu->pc;
 
     LOG(LWL, cpu);
 }
@@ -857,9 +861,14 @@ void cpu_execute_lwr(ps1_cpu* cpu)
 
     uint32_t word = ps1_bus_read_word(cpu->bus, cpu->virtual_address & 0xFFFFFFFC);  //Get the full word to then extract the necessary bytes
     uint8_t shift = ((cpu->virtual_address & 0x3) << 3);
-    uint32_t mask = 0xFFFFFF00 >> (24 - shift);
+    uint32_t mask = 0xFFFFFF00 << (24 - shift);
 
-    cpu->r[RT] = (word >> shift) | (cpu->r[RT] & mask);
+    uint32_t value = (word >> shift) | (cpu->r[RT] & mask);
+    
+    cpu->fifo_delay_load[0].delayed_value = value;
+    cpu->fifo_delay_load[0].delayed_register = RT;
+    cpu->fifo_delay_load[0].modified = 1;
+    cpu->fifo_delay_load[0].pc = cpu->pc;
 
     LOG(LWR, cpu);
 }
@@ -992,12 +1001,12 @@ void cpu_execute_bgezal(ps1_cpu* cpu)
     cpu->debug_rt_value = cpu->r[RT];
     int32_t offset = ((int16_t)OFFSET16BITS) << 2; // offset, shifted left two bits and sign-extended.
     uint32_t target_address = offset + (cpu->pc + 4);
-    cpu->r[31] = cpu->pc + 8; //Address of the instruction after the delay slot
     if(!(cpu->r[RS] & 0x80000000))
     {
         cpu->branch_address = target_address;
         cpu->branch = true;
     }
+    cpu->r[31] = cpu->pc + 8; //Address of the instruction after the delay slot
     LOG(BGEZAL, cpu);
 }
 
@@ -1023,12 +1032,13 @@ void cpu_execute_bltzal(ps1_cpu* cpu)
     cpu->debug_rt_value = cpu->r[RT];
     int32_t offset = ((int16_t)OFFSET16BITS) << 2; // offset, shifted left two bits and sign-extended.
     uint32_t target_address = offset + (cpu->pc + 4);
-    cpu->r[31] = cpu->pc + 8; //Address of the instruction after the delay slot
     if(cpu->r[RS] & 0x80000000)
     {
         cpu->branch_address = target_address;
         cpu->branch = true;
     }
+
+    cpu->r[31] = cpu->pc + 8; //Address of the instruction after the delay slot
     LOG(BLTZAL, cpu);
 }
 

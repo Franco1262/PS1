@@ -10,13 +10,13 @@
 
 #define MAX_SIZE_FIFO 2
 
-typedef enum
+typedef enum EXCEPTION
  {
     OVERFLOW = 0x0C,
-    BREAK,
+    BREAK = 0x9,
     ADEL = 0x04,
     ADES = 0x5,
-    SYSCALL
+    SYSCALL = 0x8
 
  } EXCEPTION;
 
