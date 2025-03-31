@@ -11,6 +11,7 @@ typedef struct ps1_ram ps1_ram;
 typedef struct ps1_bios ps1_bios;
 typedef struct ps1_bus ps1_bus;
 typedef struct ps1_gpu ps1_gpu;
+typedef struct ps1_scratchpad ps1_scratchpad;
 
 typedef struct ps1
 {
@@ -19,6 +20,7 @@ typedef struct ps1
     ps1_ram* ram;
     ps1_bios* bios;
     ps1_gpu* gpu;
+    ps1_scratchpad* scratchpad;
 
 }ps1;
 

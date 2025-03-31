@@ -278,9 +278,18 @@ void cpu_execute_instr(ps1_cpu* cpu)
 
 void cpu_handle_exception(ps1_cpu* cpu, EXCEPTION exception)
 {
-/*     printf("Exceptions not handled yet! \n");
-    printf("Exception triggered: %i\n", exception); */
-    //TODO: add exception handling
+    cpu->cop0[COP0_CAUSE] = (cpu->cop0[COP0_CAUSE] & 0xFFFFFFF0) | (exception << 2);
+    cpu->cop0[COP0_EPC] = cpu->pc;
+
+    
+    if(cpu->branch && !cpu->branch_delay) // if executing the delay slot
+    {
+        cpu->cop0[COP0_EPC] = cpu->pc - 4;
+        cpu->cop0[COP0_CAUSE] |= 0x80000000;
+    }
+
+    cpu->pc = ((cpu->cop0[COP0_SR] & 0x00400000) ? 0xBFC00180 : 0x80000080) - 4;
+    log_trace("EXCEPTION");
 }
 
 void cpu_execute_add(ps1_cpu* cpu)
@@ -295,8 +304,11 @@ void cpu_execute_add(ps1_cpu* cpu)
     bool overflow = (((value1 ^ result) & (value2 ^ result)) >> 31) & 0x1;
 
     if(overflow)
+    {
         cpu_handle_exception(cpu, OVERFLOW);
-    
+    }
+
+     
     else
         cpu->r[RD] = result;
 
@@ -390,18 +402,26 @@ void cpu_execute_div(ps1_cpu* cpu)
     
     cpu->debug_rs_value = cpu->r[RS];
     cpu->debug_rt_value = cpu->r[RT];
-    //TODO: check if division by zero has to be handled in any way
-    if(!cpu->r[RT])
+
+    int32_t rs = (int32_t)cpu->r[RS];
+    int32_t rt = (int32_t)cpu->r[RT];
+
+    if(!cpu->r[RT]) //if rt is zero...
     {
-        cpu->lo = 0xffffffff;
-        cpu->hi = cpu->r[RS];
+            cpu->hi = cpu->r[RS];
+            cpu->lo = (rs >= 0) ? 0xFFFFFFFF : 1;
+    }
+    else if((rs == 0x80000000) && cpu->r[RT] == -1)
+    {
+        cpu->hi = 0;
+        cpu->lo = 0x80000000;
     }
     else
     {
-        cpu->lo = cpu->r[RS] / cpu->r[RT];
-        cpu->hi = cpu->r[RS] % cpu->r[RT];        
+        cpu->lo = (uint32_t)(rs / rt);
+        cpu->hi = (uint32_t)(rs % rt);    
     }
-
+    
     LOG(DIV, cpu);
 }
 
@@ -430,9 +450,9 @@ void cpu_execute_jalr(ps1_cpu* cpu)
     cpu->debug_rs_value = cpu->r[RS];
     cpu->debug_rt_value = cpu->r[RT];
     uint32_t target_address = cpu->r[RS];
-    if((target_address & 0x3) != 0 || !valid_address(target_address))
+    if((target_address & 0x3))
     {
-        cpu_handle_exception(cpu, ADDRESS_ERROR);
+        cpu_handle_exception(cpu, ADEL);
     }
     cpu->branch_address = target_address;
     cpu->branch = true;
@@ -448,7 +468,7 @@ void cpu_execute_jr(ps1_cpu* cpu)
     uint32_t target_address = cpu->r[RS];
     if((target_address & 0x3) != 0)
     {
-        cpu_handle_exception(cpu, ADDRESS_ERROR);
+        cpu_handle_exception(cpu, ADEL);
     }
     cpu->branch_address = target_address;
     cpu->branch = true;
@@ -507,7 +527,7 @@ void cpu_execute_multu(ps1_cpu* cpu)
     
     cpu->debug_rs_value = cpu->r[RS];
     cpu->debug_rt_value = cpu->r[RT];
-    uint64_t result = cpu->r[RS] * cpu->r[RT];
+    uint64_t result = (uint64_t)cpu->r[RS] * (uint64_t)cpu->r[RT];
     cpu->lo = result & 0xFFFFFFFF;
     cpu->hi = (result >> 32) & 0xFFFFFFFF;
     LOG(MULTU, cpu);
@@ -535,7 +555,7 @@ void cpu_execute_sll(ps1_cpu* cpu)
 {
     
     cpu->debug_rs_value = cpu->r[RS];
-    cpu->debug_rt_value = cpu->r[RT];                              //Extracting sa bits from opcode
+    cpu->debug_rt_value = cpu->r[RT]; //Extracting sa bits from opcode
     cpu->r[RD] = cpu->r[RT] << IMM5BITS;
     LOG(SLL, cpu);
 }
@@ -572,7 +592,7 @@ void cpu_execute_sra(ps1_cpu* cpu)
     
     cpu->debug_rs_value = cpu->r[RS];
     cpu->debug_rt_value = cpu->r[RT];
-    cpu->r[RD] = (int32_t)(cpu->r[RT] >> ((cpu->opcode >> 6) & 0x1F));
+    cpu->r[RD] = ((int32_t)cpu->r[RT] >> ((cpu->opcode >> 6) & 0x1F));
     LOG(SRA, cpu);
 }
 
@@ -581,7 +601,7 @@ void cpu_execute_srav(ps1_cpu* cpu)
     
     cpu->debug_rs_value = cpu->r[RS];
     cpu->debug_rt_value = cpu->r[RT];
-    cpu->r[RD] = (int32_t)(cpu->r[RT] >> (cpu->r[RS] & 0x1F));
+    cpu->r[RD] = ((int32_t)cpu->r[RT] >> (cpu->r[RS] & 0x1F));
     LOG(SRAV, cpu);
 }
 
@@ -608,15 +628,15 @@ void cpu_execute_sub(ps1_cpu* cpu)
     
     cpu->debug_rs_value = cpu->r[RS];
     cpu->debug_rt_value = cpu->r[RT];
-    int32_t value1 = (int32_t)cpu->r[RS];
-    int32_t value2 = (int32_t)cpu->r[RT];
+    int32_t value1 = cpu->r[RS];
+    int32_t value2 = cpu->r[RT];
     int32_t result = value1 - value2;
-    bool overflow = ((value1 ^ result) & (value2 ^ result)) >> 31;
+    bool overflow = (((value1 ^ value2) & (value1 ^ result)) >> 31) & 0x1;
     if(overflow)
-        cpu_handle_exception(cpu, OVERFLOW);
-    
+        cpu_handle_exception(cpu, OVERFLOW);  
     else
-        cpu->r[RD] = (uint32_t)result;
+        cpu->r[RD] = result;
+
     LOG(SUB, cpu);
 
 }
@@ -721,8 +741,7 @@ void cpu_execute_lb(ps1_cpu* cpu)
     cpu->debug_rt_value = cpu->r[RT];
     int32_t offset = (int16_t)OFFSET16BITS;
     cpu->virtual_address = offset + cpu->r[BASE];
-    if(!valid_address(cpu->virtual_address))
-        cpu_handle_exception(cpu, ADDRESS_ERROR);
+
     cpu->fifo_delay_load[0].delayed_value = (int32_t)(int8_t)ps1_bus_read_byte(cpu->bus, cpu->virtual_address);
     cpu->fifo_delay_load[0].delayed_register = RT;
     cpu->fifo_delay_load[0].modified = 1;
@@ -737,8 +756,7 @@ void cpu_execute_lbu(ps1_cpu* cpu)
     cpu->debug_rt_value = cpu->r[RT];
     int32_t offset = (int16_t)OFFSET16BITS;
     cpu->virtual_address = offset + cpu->r[BASE];
-    if(!valid_address(cpu->virtual_address))
-        cpu_handle_exception(cpu, ADDRESS_ERROR);
+
     cpu->fifo_delay_load[0].delayed_value = ps1_bus_read_byte(cpu->bus, cpu->virtual_address);
     cpu->fifo_delay_load[0].delayed_register = RT;
     cpu->fifo_delay_load[0].modified = 1;
@@ -753,12 +771,15 @@ void cpu_execute_lh(ps1_cpu* cpu)
     cpu->debug_rt_value = cpu->r[RT];
     int32_t offset = (int16_t)OFFSET16BITS;
     cpu->virtual_address = offset + cpu->r[BASE];
-    if(!(cpu->virtual_address & 0x1) && !valid_address(cpu->virtual_address))
-        cpu_handle_exception(cpu, ADDRESS_ERROR);
-    cpu->fifo_delay_load[0].delayed_value = (int32_t)(int16_t)ps1_bus_read_halfword(cpu->bus, cpu->virtual_address);
-    cpu->fifo_delay_load[0].delayed_register = RT;
-    cpu->fifo_delay_load[0].modified = 1;
-    cpu->fifo_delay_load[0].pc = cpu->pc;
+    if(cpu->virtual_address & 0x1)
+        cpu_handle_exception(cpu, ADEL);
+    else
+    {
+        cpu->fifo_delay_load[0].delayed_value = (int32_t)(int16_t)ps1_bus_read_halfword(cpu->bus, cpu->virtual_address);
+        cpu->fifo_delay_load[0].delayed_register = RT;
+        cpu->fifo_delay_load[0].modified = 1;
+        cpu->fifo_delay_load[0].pc = cpu->pc;
+    }
     LOG(LH, cpu);
 }
 
@@ -769,12 +790,15 @@ void cpu_execute_lhu(ps1_cpu* cpu)
     cpu->debug_rt_value = cpu->r[RT];
     int32_t offset = (int16_t)OFFSET16BITS;
     cpu->virtual_address = offset + cpu->r[BASE];
-    if(!(cpu->virtual_address & 0x1) && !valid_address(cpu->virtual_address))
-        cpu_handle_exception(cpu, ADDRESS_ERROR);
-    cpu->fifo_delay_load[0].delayed_value = ps1_bus_read_halfword(cpu->bus, cpu->virtual_address);
-    cpu->fifo_delay_load[0].delayed_register = RT;
-    cpu->fifo_delay_load[0].modified = 1;
-    cpu->fifo_delay_load[0].pc = cpu->pc;
+    if(cpu->virtual_address & 0x1)
+        cpu_handle_exception(cpu, ADEL);
+    else
+    {
+        cpu->fifo_delay_load[0].delayed_value = ps1_bus_read_halfword(cpu->bus, cpu->virtual_address);
+        cpu->fifo_delay_load[0].delayed_register = RT;
+        cpu->fifo_delay_load[0].modified = 1;
+        cpu->fifo_delay_load[0].pc = cpu->pc;
+    }
     LOG(LHU, cpu);
 }
 
@@ -794,12 +818,15 @@ void cpu_execute_lw(ps1_cpu* cpu)
     cpu->debug_rt_value = cpu->r[RT];
     int32_t offset = (int16_t)OFFSET16BITS;
     cpu->virtual_address = offset + cpu->r[BASE];
-    if(!(cpu->virtual_address & 0x3) && !valid_address(cpu->virtual_address))
-        cpu_handle_exception(cpu, ADDRESS_ERROR);
-    cpu->fifo_delay_load[0].delayed_value = ps1_bus_read_word(cpu->bus, cpu->virtual_address);
-    cpu->fifo_delay_load[0].delayed_register = RT;
-    cpu->fifo_delay_load[0].modified = 1;
-    cpu->fifo_delay_load[0].pc = cpu->pc;
+    if(cpu->virtual_address & 0x3)
+        cpu_handle_exception(cpu, ADEL);
+    else
+    {
+        cpu->fifo_delay_load[0].delayed_value = ps1_bus_read_word(cpu->bus, cpu->virtual_address);
+        cpu->fifo_delay_load[0].delayed_register = RT;
+        cpu->fifo_delay_load[0].modified = 1;
+        cpu->fifo_delay_load[0].pc = cpu->pc;
+    }
     LOG(LW, cpu);
 }
 
@@ -810,8 +837,7 @@ void cpu_execute_lwl(ps1_cpu* cpu)
     cpu->debug_rt_value = cpu->r[RT];
     int32_t offset = (int16_t)OFFSET16BITS;
     cpu->virtual_address = offset + cpu->r[BASE];
-    if(!valid_address(cpu->virtual_address))
-        cpu_handle_exception(cpu, ADDRESS_ERROR);
+
     uint32_t word = ps1_bus_read_word(cpu->bus, cpu->virtual_address & 0xFFFFFFFC);  //Get the full word to then extract the necessary bytes
     uint8_t shift = ((cpu->virtual_address & 0x3) << 3);
     uint32_t mask = 0x00FFFFFF >> shift;
@@ -828,8 +854,7 @@ void cpu_execute_lwr(ps1_cpu* cpu)
     cpu->debug_rt_value = cpu->r[RT];
     int32_t offset = (int16_t)OFFSET16BITS;
     cpu->virtual_address = offset + cpu->r[BASE];
-    if(!valid_address(cpu->virtual_address))
-        cpu_handle_exception(cpu, ADDRESS_ERROR);
+
     uint32_t word = ps1_bus_read_word(cpu->bus, cpu->virtual_address & 0xFFFFFFFC);  //Get the full word to then extract the necessary bytes
     uint8_t shift = ((cpu->virtual_address & 0x3) << 3);
     uint32_t mask = 0xFFFFFF00 >> (24 - shift);
@@ -864,9 +889,11 @@ void cpu_execute_sh(ps1_cpu* cpu)
     cpu->debug_rs_value = cpu->r[RS];
     cpu->debug_rt_value = cpu->r[RT];
     cpu->virtual_address = (int32_t)(int16_t)IMM16BITS + cpu->r[BASE];
+
     if(cpu->virtual_address & 0x1)
-        cpu_handle_exception(cpu, ADDRESS_ERROR);
-    ps1_bus_store_halfword(cpu->bus, cpu->virtual_address, (cpu->r[RT] & 0xFFFF));
+        cpu_handle_exception(cpu, ADES);
+    else  
+        ps1_bus_store_halfword(cpu->bus, cpu->virtual_address, (cpu->r[RT] & 0xFFFF));
     LOG(SH, cpu);
 }
 
@@ -895,9 +922,10 @@ void cpu_execute_sw(ps1_cpu* cpu)
     cpu->debug_rs_value = cpu->r[RS];
     cpu->debug_rt_value = cpu->r[RT];
     cpu->virtual_address = (int32_t)(int16_t)IMM16BITS + cpu->r[BASE];
-    if((cpu->virtual_address & 0x3) != 0)
-        cpu_handle_exception(cpu, ADDRESS_ERROR);
-    ps1_bus_store_word(cpu->bus, cpu->virtual_address, cpu->r[RT]);
+    if(cpu->virtual_address & 0x3)
+        cpu_handle_exception(cpu, ADES);
+    else
+        ps1_bus_store_word(cpu->bus, cpu->virtual_address, cpu->r[RT]);
     LOG(SW, cpu);
 }
 
@@ -908,8 +936,6 @@ void cpu_execute_swl(ps1_cpu* cpu)
     cpu->debug_rt_value = cpu->r[RT];
     int32_t offset = (int16_t)OFFSET16BITS;
     cpu->virtual_address = offset + cpu->r[BASE];
-    if(!valid_address(cpu->virtual_address))
-        cpu_handle_exception(cpu, ADDRESS_ERROR);
     uint32_t word = ps1_bus_read_word(cpu->bus, cpu->virtual_address & 0xFFFFFFFC);
     
     uint8_t shift = ((cpu->virtual_address & 0x3) << 3);
@@ -926,8 +952,6 @@ void cpu_execute_swr(ps1_cpu* cpu)
     cpu->debug_rt_value = cpu->r[RT];
     int32_t offset = (int16_t)OFFSET16BITS;
     cpu->virtual_address = offset + cpu->r[BASE];
-    if(!valid_address(cpu->virtual_address))
-        cpu_handle_exception(cpu, ADDRESS_ERROR);
     uint32_t word = ps1_bus_read_word(cpu->bus, cpu->virtual_address & 0xFFFFFFFC);
     
     uint8_t shift = ((cpu->virtual_address & 0x3) << 3);

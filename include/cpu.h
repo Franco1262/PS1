@@ -12,9 +12,10 @@
 
 typedef enum
  {
-    OVERFLOW,
+    OVERFLOW = 0x0C,
     BREAK,
-    ADDRESS_ERROR,
+    ADEL = 0x04,
+    ADES = 0x5,
     SYSCALL
 
  } EXCEPTION;

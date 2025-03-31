@@ -9,6 +9,7 @@ typedef struct ps1_bios ps1_bios;
 typedef struct ps1_cpu ps1_cpu;
 typedef struct ps1_ram ps1_ram;
 typedef struct ps1_gpu ps1_gpu;
+typedef struct ps1_scratchpad ps1_scratchpad;
 
 typedef struct ps1_bus
 {
@@ -16,10 +17,11 @@ typedef struct ps1_bus
     ps1_cpu* cpu;
     ps1_ram* ram;
     ps1_gpu* gpu;
+    ps1_scratchpad* scratchpad;
 }ps1_bus;
 
 ps1_bus* ps1_bus_create();
-void ps1_bus_init(ps1_bus* bus, ps1_bios* bios, ps1_cpu* cpu, ps1_ram* ram, ps1_gpu* gpu);
+void ps1_bus_init(ps1_bus* bus, ps1_bios* bios, ps1_cpu* cpu, ps1_ram* ram, ps1_gpu* gpu, ps1_scratchpad* scratchpad);
 uint8_t ps1_bus_read_byte(ps1_bus* bus, uint32_t address);
 uint16_t ps1_bus_read_halfword(ps1_bus* bus, uint32_t address);
 uint32_t ps1_bus_read_word(ps1_bus* bus, uint32_t address);

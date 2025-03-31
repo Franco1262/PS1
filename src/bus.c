@@ -2,6 +2,7 @@
 #include "ram.h"
 #include "bios.h"
 #include "gpu.h"
+#include "scratchpad.h"
 #include "bus.h"
 
 ps1_bus* ps1_bus_create()
@@ -9,26 +10,26 @@ ps1_bus* ps1_bus_create()
     return (ps1_bus*)malloc(sizeof(ps1_bus));
 }
 
-void ps1_bus_init(ps1_bus* bus, ps1_bios* bios, ps1_cpu* cpu, ps1_ram* ram, ps1_gpu* gpu)
+void ps1_bus_init(ps1_bus* bus, ps1_bios* bios, ps1_cpu* cpu, ps1_ram* ram, ps1_gpu* gpu, ps1_scratchpad* scratchpad)
 {
     bus->bios = bios;
     bus->cpu = cpu;
     bus->ram = ram;
     bus->gpu = gpu;
+    bus->scratchpad = scratchpad;
 }
 
 uint8_t ps1_bus_read_byte(ps1_bus* bus, uint32_t address)
 {
-    uint8_t data = 0x00;
+    uint8_t data = 0x00; 
     uint32_t masked_address = address & 0x1FFFFFFF; // Mask to 512MB space
 
     if (masked_address < 0x00200000)  // Main RAM (2MB, first 64K reserved for BIOS)
         data = ps1_ram_read_byte(bus->ram, masked_address);
-
     else if (masked_address >= 0x1FC00000 && masked_address < 0x20000000) // BIOS ROM (512KB, max 4MB)
         data = ps1_bios_read_byte(bus->bios, masked_address);
-/*     else if (masked_address >= 0x1F800000 && masked_address < 0x1F801000)  // Scratchpad RAM (1KB)
-        printf("Unhandled memory read at 0x%08X, tried to read byte from scratchpad  PC: %08x\n", address, bus->cpu->pc); */
+    else if ((masked_address >= 0x1F800000 && masked_address < 0x1F800400) && address < 0x9F800400)  // Scratchpad RAM (1KB)
+        data = ps1_scratchpad_read_byte(bus->scratchpad, masked_address);
 /*     else if(masked_address >= 0x1F000000 && masked_address < 0x1F800000)
         printf("Unhandled memory read at 0x%08X, tried to read word from Expansion Region 1  PC: %08x\n", address, bus->cpu->pc);
 
@@ -61,8 +62,8 @@ uint16_t ps1_bus_read_halfword(ps1_bus* bus, uint32_t address)
         data = ps1_ram_read_halfword(bus->ram, masked_address);
     else if (masked_address >= 0x1FC00000 && masked_address < 0x20000000) // BIOS ROM (512KB, max 4MB)
         data = ps1_bios_read_halfword(bus->bios, masked_address);
-/*     else if (masked_address >= 0x1F800000 && masked_address < 0x1F801000)  // Scratchpad RAM (1KB)
-        printf("Unhandled memory read at 0x%08X, tried to read halfword from scratchpad  PC: %08x\n", address, bus->cpu->pc); */
+    else if ((masked_address >= 0x1F800000 && masked_address < 0x1F800400) && address < 0x9F800400)  // Scratchpad RAM (1KB)
+        data = ps1_scratchpad_read_halfword(bus->scratchpad, masked_address);
 /*     else if(masked_address >= 0x1F000000 && masked_address < 0x1F800000)
         printf("Unhandled memory read at 0x%08X, tried to read halfword from Expansion Region 1  PC: %08x\n", address, bus->cpu->pc);
 
@@ -95,8 +96,8 @@ uint32_t ps1_bus_read_word(ps1_bus* bus, uint32_t address)
         data = ps1_ram_read_word(bus->ram, masked_address);
     else if (masked_address >= 0x1FC00000 && masked_address < 0x20000000) // BIOS ROM (512KB, max 4MB)
         data = ps1_bios_read_word(bus->bios, masked_address);
-/*     else if (masked_address >= 0x1F800000 && masked_address < 0x1F801000)  // Scratchpad RAM (1KB)
-        printf("Unhandled memory read at 0x%08X, tried to read word from scratchpad  PC: %08x\n", address, bus->cpu->pc); */
+    else if ((masked_address >= 0x1F800000 && masked_address < 0x1F800400) && address < 0x9F800400)  // Scratchpad RAM (1KB)
+        data = ps1_scratchpad_read_word(bus->scratchpad, masked_address);
 
 /*     else if (masked_address >= 0x1F801000 && masked_address < 0x1F802000)  // I/O Ports (4KB)
         printf("Unhandled memory read at 0x%08X, tried to read word from I/O Ports  PC: %08x\n", address, bus->cpu->pc);
@@ -128,8 +129,8 @@ void ps1_bus_store_byte(ps1_bus* bus, uint32_t address, uint8_t value)
         {
             if (masked_address < 0x00200000)  // Main RAM (2MB, first 64K reserved for BIOS)
                 ps1_ram_store_byte(bus->ram, masked_address, value);      
-/*             else if (masked_address >= 0x1F800000 && masked_address < 0x1F801000)  // Scratchpad RAM (1KB)
-                printf("Unhandled memory write at 0x%08X, tried to write byte to scratchpad  PC: %08x\n", address, bus->cpu->pc); */
+            else if ((masked_address >= 0x1F800000 && masked_address < 0x1F800400) && address < 0x9F800400)  // Scratchpad RAM (1KB)
+                ps1_scratchpad_store_byte(bus->scratchpad, masked_address, value);
 /*             else if(masked_address >= 0x1F000000 && masked_address < 0x1F800000)
                 printf("Unhandled memory write at 0x%08X, tried to write byte to Expansion Region 1  PC: %08x\n", address, bus->cpu->pc);
 
@@ -166,8 +167,8 @@ void ps1_bus_store_halfword(ps1_bus* bus, uint32_t address, uint16_t value)
         {
             if (masked_address < 0x00200000)  // Main RAM (2MB, first 64K reserved for BIOS)
                 ps1_ram_store_halfword(bus->ram, masked_address, value);
-/*             else if (masked_address >= 0x1F800000 && masked_address < 0x1F801000)  // Scratchpad RAM (1KB)
-                printf("Unhandled memory write at 0x%08X, tried to write halfword to scratchpad  PC: %08x\n", address, bus->cpu->pc); */
+            else if ((masked_address >= 0x1F800000 && masked_address < 0x1F800400) && address < 0x9F800400)  // Scratchpad RAM (1KB)
+                ps1_scratchpad_store_halfword(bus->scratchpad, masked_address, value);
 /*             else if(masked_address >= 0x1F000000 && masked_address < 0x1F800000)
                 printf("Unhandled memory write at 0x%08X, tried to write halfword to Expansion Region 1  PC: %08x\n", address, bus->cpu->pc);
             
@@ -204,8 +205,8 @@ void ps1_bus_store_word(ps1_bus* bus, uint32_t address, uint32_t value)
         {
             if (masked_address < 0x00200000)  // Main RAM (2MB, first 64K reserved for BIOS)
                 ps1_ram_store_word(bus->ram, masked_address, value);
-/*             else if (masked_address >= 0x1F800000 && masked_address < 0x1F801000)  // Scratchpad RAM (1KB)
-                printf("Unhandled memory write at 0x%08X, tried to write word to scratchpad  PC: %08x\n", address, bus->cpu->pc); */
+            else if ((masked_address >= 0x1F800000 && masked_address < 0x1F800400) && address < 0x9F800400)  // Scratchpad RAM (1KB)
+                ps1_scratchpad_store_word(bus->scratchpad, masked_address, value);
 
 /*             else if (masked_address >= 0x1F801000 && masked_address < 0x1F802000)  // I/O Ports (4KB)
                 printf("Unhandled memory write at 0x%08X, tried to write word to IO ports  PC: %08x\n", address, bus->cpu->pc);
