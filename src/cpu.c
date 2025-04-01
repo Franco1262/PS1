@@ -250,17 +250,23 @@ void cpu_execute_instr(ps1_cpu* cpu)
         case (0b101110): cpu_execute_swr(cpu); break;
         case (0b001110): cpu_execute_xori(cpu); break;
 
-       case (0b000001):
-       {
-            switch((cpu->opcode & 0x001F0000) >> 16)
+        case (0b000001):
+        {
+            uint8_t rt = RT;
+        
+            if (!((rt & 0x1E) == 0x10)) 
+                rt &= 1;
+        
+            switch(rt)
             {
-                case (0b00001): cpu_execute_bgez(cpu); break;
-                case (0b10001): cpu_execute_bgezal(cpu); break;
-                case (0b00000): cpu_execute_bltz(cpu); break;
-                case (0b10000): cpu_execute_bltzal(cpu); break;
+                case (0b00000): cpu_execute_bltz(cpu); break;   // BLTZ
+                case (0b00001): cpu_execute_bgez(cpu); break;   // BGEZ
+                case (0b10000): cpu_execute_bltzal(cpu); break; // BLTZAL
+                case (0b10001): cpu_execute_bgezal(cpu); break; // BGEZAL
             }
             break;
-       }
+        }
+        
 
        //COP0 instruction
        case (0b010000):
@@ -269,6 +275,7 @@ void cpu_execute_instr(ps1_cpu* cpu)
             {
                 case (0b00000): cpu_execute_mfc0(cpu); break;
                 case (0b00100): cpu_execute_mtc0(cpu); break;
+                case (0b10000): cpu_execute_rfe(cpu); break;
             }
             break;
        }
@@ -832,17 +839,33 @@ void cpu_execute_lw(ps1_cpu* cpu)
 
 void cpu_execute_lwl(ps1_cpu* cpu)
 {
-    
     cpu->debug_rs_value = cpu->r[RS];
     cpu->debug_rt_value = cpu->r[RT];
     int32_t offset = (int16_t)OFFSET16BITS;
-    cpu->virtual_address = offset + cpu->r[BASE];
+    uint32_t base = 0;
+    uint32_t rt = 0;
+    if(cpu->fifo_delay_load[1].delayed_register == (BASE))
+    {
+        base = cpu->fifo_delay_load[1].delayed_value;
+        cpu->fifo_delay_load[1].modified = false;
+    }
+    else
+        base = cpu->r[BASE];   
+
+    if(cpu->fifo_delay_load[1].delayed_register == (RT))
+    {
+        rt = cpu->fifo_delay_load[1].delayed_value;
+        cpu->fifo_delay_load[1].modified = false;
+    }
+    else
+        rt = cpu->r[RT];   
+    cpu->virtual_address = offset + base;
 
     uint32_t word = ps1_bus_read_word(cpu->bus, cpu->virtual_address & 0xFFFFFFFC);  //Get the full word to then extract the necessary bytes
     uint8_t shift = ((cpu->virtual_address & 0x3) << 3);
     uint32_t mask = 0x00FFFFFF >> shift;
 
-    uint32_t value = (word << (24 - shift)) | (cpu->r[RT] & mask);
+    uint32_t value = (word << (24 - shift)) | (rt & mask);
     cpu->fifo_delay_load[0].delayed_value = value;
     cpu->fifo_delay_load[0].delayed_register = RT;
     cpu->fifo_delay_load[0].modified = 1;
@@ -853,17 +876,35 @@ void cpu_execute_lwl(ps1_cpu* cpu)
 
 void cpu_execute_lwr(ps1_cpu* cpu)
 {
-    
     cpu->debug_rs_value = cpu->r[RS];
     cpu->debug_rt_value = cpu->r[RT];
     int32_t offset = (int16_t)OFFSET16BITS;
-    cpu->virtual_address = offset + cpu->r[BASE];
+
+    uint32_t base = 0;
+    uint32_t rt = 0;
+    if(cpu->fifo_delay_load[1].delayed_register == (BASE))
+    {
+        base = cpu->fifo_delay_load[1].delayed_value;
+        cpu->fifo_delay_load[1].modified = false;
+    }
+    else
+        base = cpu->r[BASE];   
+
+    if(cpu->fifo_delay_load[1].delayed_register == (RT))
+    {
+        rt = cpu->fifo_delay_load[1].delayed_value;
+        cpu->fifo_delay_load[1].modified = false;
+    }
+    else
+        rt = cpu->r[RT];   
+
+    cpu->virtual_address = offset + base;
 
     uint32_t word = ps1_bus_read_word(cpu->bus, cpu->virtual_address & 0xFFFFFFFC);  //Get the full word to then extract the necessary bytes
     uint8_t shift = ((cpu->virtual_address & 0x3) << 3);
     uint32_t mask = 0xFFFFFF00 << (24 - shift);
 
-    uint32_t value = (word >> shift) | (cpu->r[RT] & mask);
+    uint32_t value = (word >> shift) | (rt & mask);
     
     cpu->fifo_delay_load[0].delayed_value = value;
     cpu->fifo_delay_load[0].delayed_register = RT;
@@ -1058,4 +1099,11 @@ void cpu_execute_mtc0(ps1_cpu* cpu)
     cpu->debug_rt_value = cpu->r[RT];
     cpu->cop0[RD] = cpu->r[RT] & cpu_cop0_writemask[RD];
     LOG(MTC0, cpu);
+}
+
+void cpu_execute_rfe(ps1_cpu* cpu)
+{
+    uint32_t mode = cpu->cop0[COP0_SR] & 0x3F;
+    cpu->cop0[COP0_SR] &= 0xFFFFFFF0;
+    cpu->cop0[COP0_SR] |= mode >> 2;
 }

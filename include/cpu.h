@@ -158,6 +158,7 @@ void cpu_execute_bltzal(ps1_cpu* cpu);
 //COP0 instructions
 void cpu_execute_mfc0(ps1_cpu* cpu);
 void cpu_execute_mtc0(ps1_cpu* cpu);
+void cpu_execute_rfe(ps1_cpu* cpu);
 
 void cpu_handle_exception(ps1_cpu* cpu, EXCEPTION exception);
 
