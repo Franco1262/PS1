@@ -165,7 +165,7 @@ void cpu_handle_exception(ps1_cpu* cpu, EXCEPTION exception);
 ps1_cpu* ps1_cpu_create();
 void ps1_cpu_init(ps1_cpu* cpu);
 void ps1_cpu_destroy(ps1_cpu* cpu);
-void ps1_connect_bus(ps1_bus* bus, ps1_cpu* cpu);
+void ps1_connect_bus_cpu(ps1_bus* bus, ps1_cpu* cpu);
 
 void sideload_exe(ps1_cpu* cpu);
 

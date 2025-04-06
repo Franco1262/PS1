@@ -3,20 +3,23 @@
 #include "bios.h"
 #include "gpu.h"
 #include "scratchpad.h"
+#include "dma.h"
 #include "bus.h"
 
+//TODO: Check for unhandled mirrors
 ps1_bus* ps1_bus_create()
 {
     return (ps1_bus*)malloc(sizeof(ps1_bus));
 }
 
-void ps1_bus_init(ps1_bus* bus, ps1_bios* bios, ps1_cpu* cpu, ps1_ram* ram, ps1_gpu* gpu, ps1_scratchpad* scratchpad)
+void ps1_bus_init(ps1_bus* bus, ps1_bios* bios, ps1_cpu* cpu, ps1_ram* ram, ps1_gpu* gpu, ps1_scratchpad* scratchpad, ps1_dma* dma)
 {
     bus->bios = bios;
     bus->cpu = cpu;
     bus->ram = ram;
     bus->gpu = gpu;
     bus->scratchpad = scratchpad;
+    bus->dma = dma;
 }
 
 uint8_t ps1_bus_read_byte(ps1_bus* bus, uint32_t address)
@@ -32,8 +35,6 @@ uint8_t ps1_bus_read_byte(ps1_bus* bus, uint32_t address)
         data = ps1_scratchpad_read_byte(bus->scratchpad, masked_address);
 /*     else if(masked_address >= 0x1F000000 && masked_address < 0x1F800000)
         printf("Unhandled memory read at 0x%08X, tried to read word from Expansion Region 1  PC: %08x\n", address, bus->cpu->pc);
-
-
 
     else if (masked_address >= 0x1F801000 && masked_address < 0x1F802000)  // I/O Ports (4KB)
         printf("Unhandled memory read at 0x%08X, tried to read byte from IO ports  PC: %08x\n", address, bus->cpu->pc);
@@ -64,10 +65,8 @@ uint16_t ps1_bus_read_halfword(ps1_bus* bus, uint32_t address)
         data = ps1_bios_read_halfword(bus->bios, masked_address);
     else if ((masked_address >= 0x1F800000 && masked_address < 0x1F800400) && address < 0x9F800400)  // Scratchpad RAM (1KB)
         data = ps1_scratchpad_read_halfword(bus->scratchpad, masked_address);
-/*     else if(masked_address >= 0x1F000000 && masked_address < 0x1F800000)
+/*  else if(masked_address >= 0x1F000000 && masked_address < 0x1F800000)
         printf("Unhandled memory read at 0x%08X, tried to read halfword from Expansion Region 1  PC: %08x\n", address, bus->cpu->pc);
-
-
 
     else if (masked_address >= 0x1F801000 && masked_address < 0x1F802000)  // I/O Ports (4KB)
         printf("Unhandled memory read at 0x%08X, tried to read halfword from IO ports  PC: %08x\n", address, bus->cpu->pc);
@@ -98,10 +97,13 @@ uint32_t ps1_bus_read_word(ps1_bus* bus, uint32_t address)
         data = ps1_bios_read_word(bus->bios, masked_address);
     else if ((masked_address >= 0x1F800000 && masked_address < 0x1F800400) && address < 0x9F800400)  // Scratchpad RAM (1KB)
         data = ps1_scratchpad_read_word(bus->scratchpad, masked_address);
-
+    else if(masked_address >= 0x1F801080 && masked_address <= 0x1F8010FC)
+        data = ps1_dma_read_word(bus->dma, address);
+    else if(masked_address == 0x1F801814)
+        data = 0x1C000000;
 /*     else if (masked_address >= 0x1F801000 && masked_address < 0x1F802000)  // I/O Ports (4KB)
-        printf("Unhandled memory read at 0x%08X, tried to read word from I/O Ports  PC: %08x\n", address, bus->cpu->pc);
-    else if(masked_address >= 0x1F000000 && masked_address < 0x1F800000)
+        printf("Unhandled memory read at 0x%08X, tried to read word from I/O Ports  PC: %08x\n", address, bus->cpu->pc); */
+/*     else if(masked_address >= 0x1F000000 && masked_address < 0x1F800000)
         printf("Unhandled memory read at 0x%08X, tried to read word from Expansion Region 1  PC: %08x\n", address, bus->cpu->pc);
 
     else if (masked_address >= 0x1F802000 && masked_address < 0x1FA00000)  // Expansion Region 2 (8KB I/O)
@@ -131,11 +133,9 @@ void ps1_bus_store_byte(ps1_bus* bus, uint32_t address, uint8_t value)
                 ps1_ram_store_byte(bus->ram, masked_address, value);      
             else if ((masked_address >= 0x1F800000 && masked_address < 0x1F800400) && address < 0x9F800400)  // Scratchpad RAM (1KB)
                 ps1_scratchpad_store_byte(bus->scratchpad, masked_address, value);
-/*             else if(masked_address >= 0x1F000000 && masked_address < 0x1F800000)
-                printf("Unhandled memory write at 0x%08X, tried to write byte to Expansion Region 1  PC: %08x\n", address, bus->cpu->pc);
-
-
-            
+/*          
+            else if(masked_address >= 0x1F000000 && masked_address < 0x1F800000)
+                printf("Unhandled memory write at 0x%08X, tried to write byte to Expansion Region 1  PC: %08x\n", address, bus->cpu->pc);      
             else if (masked_address >= 0x1F801000 && masked_address < 0x1F802000)  // I/O Ports (4KB)
                 printf("Unhandled memory write at 0x%08X, tried to write byte to IO ports  PC: %08x\n", address, bus->cpu->pc);
             
@@ -151,7 +151,8 @@ void ps1_bus_store_byte(ps1_bus* bus, uint32_t address, uint8_t value)
             else
                 printf("Unhandled byte memory write at 0x%08X, address falls in an unknown region\n", address); */
         }
-/*         else if (address >= 0xFFFE0000 && address < 0xFFFE0200)
+/*      
+        else if (address >= 0xFFFE0000 && address < 0xFFFE0200)
             printf("Unhandled memory write at 0x%08X, tried to write byte to cache control registers\n", address);
         else
             printf("Unhandled byte memory write at 0x%08X, address falls in an unknown region\n", address); */
@@ -207,10 +208,13 @@ void ps1_bus_store_word(ps1_bus* bus, uint32_t address, uint32_t value)
                 ps1_ram_store_word(bus->ram, masked_address, value);
             else if ((masked_address >= 0x1F800000 && masked_address < 0x1F800400) && address < 0x9F800400)  // Scratchpad RAM (1KB)
                 ps1_scratchpad_store_word(bus->scratchpad, masked_address, value);
-
-/*             else if (masked_address >= 0x1F801000 && masked_address < 0x1F802000)  // I/O Ports (4KB)
+            else if(masked_address >= 0x1F801080 && masked_address <= 0x1F8010FC)
+                ps1_dma_store_word(bus->dma, address, value);
+            else if (masked_address >= 0x1F801000 && masked_address < 0x1F802000)  // I/O Ports (4KB)
                 printf("Unhandled memory write at 0x%08X, tried to write word to IO ports  PC: %08x\n", address, bus->cpu->pc);
-            else if(masked_address >= 0x1F000000 && masked_address < 0x1F800000)
+            
+
+/*             else if(masked_address >= 0x1F000000 && masked_address < 0x1F800000)
                 printf("Unhandled memory write at 0x%08X, tried to write word to Expansion Region 1  PC: %08x\n", address, bus->cpu->pc);
             
             else if (masked_address >= 0x1F802000 && masked_address < 0x1FA00000)  // Expansion Region 2 (8KB I/O)
