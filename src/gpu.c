@@ -34,6 +34,9 @@ void ps1_gpu_write_word(ps1_gpu* gpu, uint32_t address, uint32_t value)
 {
     switch(address)
     {
+        case 0x1F801810:
+            printf("Command: %08x\n", value);
+            break;
         case 0x1F801814:
             gpu->GPUSTAT = value;
             break;

@@ -210,8 +210,11 @@ void ps1_bus_store_word(ps1_bus* bus, uint32_t address, uint32_t value)
                 ps1_scratchpad_store_word(bus->scratchpad, masked_address, value);
             else if(masked_address >= 0x1F801080 && masked_address <= 0x1F8010FC)
                 ps1_dma_store_word(bus->dma, address, value);
-            else if (masked_address >= 0x1F801000 && masked_address < 0x1F802000)  // I/O Ports (4KB)
-                printf("Unhandled memory write at 0x%08X, tried to write word to IO ports  PC: %08x\n", address, bus->cpu->pc);
+            else if(masked_address == 0x1F801810)
+                ps1_gpu_write_word(bus->gpu, 0x1F801810, value);
+
+/*             else if (masked_address >= 0x1F801000 && masked_address < 0x1F802000)  // I/O Ports (4KB)
+                printf("Unhandled memory write at 0x%08X, tried to write word to IO ports  PC: %08x\n", address, bus->cpu->pc); */
             
 
 /*             else if(masked_address >= 0x1F000000 && masked_address < 0x1F800000)

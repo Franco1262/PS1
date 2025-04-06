@@ -128,7 +128,7 @@ uint32_t ps1_dma_read_word(ps1_dma* dma, uint32_t address)
         default: printf("Unhandled word read to DMA address: %08x\n", address); break;;
     }
 
-    printf("Read from %08x, value read: %08x\n", address, data);
+    //printf("Read from %08x, value read: %08x\n", address, data);
     return data;
 }
 
@@ -145,16 +145,51 @@ void ps1_dma_do_transfer(ps1_dma* dma)
         printf("START GPU LINKLIST\n");
         ps1_dma_do_linklist(dma);
     }
+
+    else if(dma->channel[2].chcr == 0x01000200)
+    {
+        printf("VRAMREAD");
+    }
+
+    else if(dma->channel[2].chcr == 0x01000201)
+    {
+        printf("START VRAMWRITE\n");
+        ps1_dma_do_vramwrite(dma);
+    }
     
+}
+
+void ps1_dma_do_vramwrite(ps1_dma* dma)
+{
+    uint32_t length = (dma->channel[2].bcr & 0xFFFF) * ((dma->channel[2].bcr >> 16) & 0xFFFF);
+    int8_t increment_type = (dma->channel[2].chcr & 0x2 ? -4 : 4); 
+    for(int i = 0; i < length; i++)
+    {
+        uint32_t word = ps1_bus_read_word(dma->bus, dma->channel[2].madr);
+        ps1_bus_store_word(dma->bus, 0x1F801810, word);
+        printf("ADDRESS: %08x\n", dma->channel[2].madr);
+        dma->channel[2].madr += increment_type;
+    }
+    printf("FINISH VRAMWRITE\n");
+    dma->channel[2].chcr = ~( (1 << 24) | (1 << 28) );
 }
 
 void ps1_dma_do_linklist(ps1_dma* dma)
 {
-    uint16_t num_packets = (dma->channel[2].madr >> 24) & 0xFF;
     uint32_t addr = dma->channel[2].madr & 0x00FFFFFF;
-    for(int i = 0; i < num_packets ; i++)
+    uint32_t header = 0x0;
+    while(!(addr & 0x00800000)) //Any address with bit 23 set is an end marker
     {
-
+        header = ps1_bus_read_word(dma->bus, addr);
+        uint8_t num_packets = (header >> 24) & 0xFF;
+        uint32_t addr_next_node = header & 0x00FFFFFF;
+        for(int i = 0; i < num_packets; i++)
+        {
+            addr += 4;
+            uint32_t word = ps1_bus_read_word(dma->bus, addr);
+            ps1_bus_store_word(dma->bus, 0x1F801810, word);
+        }   
+        addr = addr_next_node;
     }
 
     printf("FINISH GPU LINKLIST\n");

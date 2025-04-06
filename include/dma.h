@@ -45,6 +45,7 @@ void ps1_connect_bus_dma(ps1_bus* bus, ps1_dma* dma);
 void ps1_dma_do_transfer(ps1_dma* dma);
 void ps1_dma_do_otc(ps1_dma* dma);
 void ps1_dma_do_linklist(ps1_dma* dma);
+void ps1_dma_do_vramwrite(ps1_dma* dma);
 
 uint8_t ps1_dma_read_byte(ps1_dma* dma, uint32_t address);
 uint16_t ps1_dma_read_halfword(ps1_dma* dma, uint32_t address);
